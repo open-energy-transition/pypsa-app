@@ -46,6 +46,7 @@ infra/
 
 # Agents
 .claude
+!.claude/
 AGENTS.md
 .mcp.json
 

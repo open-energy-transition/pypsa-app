@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git branch:*)",
+      "Bash(git fetch:*)",
+      "Bash(git remote:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh api /repos/open-energy-transition/pypsa-app:*)",
+      "Bash(gh api graphql:*)",
+      "Bash(pre-commit run:*)",
+      "Bash(uv run:*)",
+      "Bash(npm run:*)"
+    ]
+  }
+}
