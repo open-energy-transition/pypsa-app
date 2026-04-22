@@ -210,6 +210,22 @@ class Settings(BaseSettings):
         """Whether SMTP email notifications are configured."""
         return self.smtp_host is not None
 
+    # AI
+    anthropic_api_key: str | None = Field(
+        default=None,
+        description=("Anthropic API key for Claude-powered chat features (optional)"),
+        json_schema_extra={"category": "AI"},
+    )
+    anthropic_base_url: str | None = Field(
+        default=None,
+        description=(
+            "Anthropic API base URL. Leave unset for api.anthropic.com. "
+            "Override to use an Anthropic-compatible provider "
+            "(e.g. https://openrouter.ai/api/v1, or a local llama.cpp server)."
+        ),
+        json_schema_extra={"category": "AI"},
+    )
+
     # Development
     backend_only: bool = Field(
         default=False,
