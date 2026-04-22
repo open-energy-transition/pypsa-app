@@ -221,7 +221,29 @@ class Settings(BaseSettings):
         description=(
             "Anthropic API base URL. Leave unset for api.anthropic.com. "
             "Override to use an Anthropic-compatible provider "
-            "(e.g. https://openrouter.ai/api/v1, or a local llama.cpp server)."
+            "(e.g. http://localhost:11434 for Ollama, "
+            "https://openrouter.ai/api/v1 for OpenRouter, "
+            "or a local llama.cpp server)."
+        ),
+        json_schema_extra={"category": "AI"},
+    )
+    llm_model_default: str = Field(
+        default="qwen3.5:9b",
+        description=(
+            "Default model ID for the chat endpoint when the request omits "
+            "`model`. Use a model available at the configured provider "
+            "(e.g. `qwen3.5:9b` for Ollama, `claude-opus-4-7` for Anthropic)."
+        ),
+        json_schema_extra={"category": "AI"},
+    )
+    llm_thinking_enabled: bool = Field(
+        default=False,
+        description=(
+            "Enable extended thinking in chat replies. Off by default because "
+            "thinking tokens are counted against `max_tokens` and many local "
+            "models waste output on visible reasoning. Note: not portable "
+            "across all providers — Claude Opus 4.7 rejects the `enabled` "
+            "shape and requires adaptive thinking instead."
         ),
         json_schema_extra={"category": "AI"},
     )
