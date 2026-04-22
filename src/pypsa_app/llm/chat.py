@@ -85,7 +85,9 @@ async def chat(
             detail=exc.message,
         ) from exc
     except anthropic.APIConnectionError as exc:
-        logger.exception("Could not reach LLM provider at %s", settings.anthropic_base_url)
+        logger.exception(
+            "Could not reach LLM provider at %s", settings.anthropic_base_url
+        )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="LLM provider unreachable.",
