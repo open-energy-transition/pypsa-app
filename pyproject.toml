@@ -30,6 +30,7 @@ dependencies = [
     "httpx",
     "python-multipart",
     "alembic",
+    "anthropic>=0.96",
 ]
 
 [project.optional-dependencies]
