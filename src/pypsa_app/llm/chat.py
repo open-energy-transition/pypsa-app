@@ -20,14 +20,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-SYSTEM_PROMPT = (
-    "You are a helpful assistant for PyPSA, an open-source energy system "
-    "optimization framework. Keep replies concise and accurate. If you are "
-    "unsure about something, say so rather than guessing."
-)
-
-MAX_TOKENS = 16000
-
 
 def _build_client() -> anthropic.AsyncAnthropic:
     if not settings.anthropic_api_key:
@@ -56,7 +48,7 @@ async def chat(
         {"role": "user", "content": req.message},
     ]
     thinking = (
-        {"type": "enabled", "budget_tokens": 4000}
+        {"type": "enabled", "budget_tokens": settings.llm_thinking_budget_tokens}
         if settings.llm_thinking_enabled
         else {"type": "disabled"}
     )
@@ -64,8 +56,8 @@ async def chat(
     try:
         response = await client.messages.create(
             model=model,
-            max_tokens=MAX_TOKENS,
-            system=SYSTEM_PROMPT,
+            max_tokens=settings.llm_max_tokens,
+            system=settings.llm_system_prompt,
             messages=messages,
             thinking=thinking,
         )

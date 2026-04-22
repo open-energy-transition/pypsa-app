@@ -247,6 +247,33 @@ class Settings(BaseSettings):
         ),
         json_schema_extra={"category": "AI"},
     )
+    llm_thinking_budget_tokens: int = Field(
+        default=4000,
+        description=(
+            "Token budget passed to the provider when thinking is enabled. "
+            "Ollama accepts but does not enforce this value; Anthropic "
+            "classic-thinking models require it strictly less than max_tokens."
+        ),
+        json_schema_extra={"category": "AI", "depends_on": "llm_thinking_enabled"},
+    )
+    llm_max_tokens: int = Field(
+        default=16000,
+        description=(
+            "Maximum tokens the model may generate per chat response "
+            "(includes thinking tokens when thinking is enabled)."
+        ),
+        json_schema_extra={"category": "AI"},
+    )
+    llm_system_prompt: str = Field(
+        default=(
+            "You are a helpful assistant for PyPSA, an open-source energy "
+            "system optimization framework. Keep replies concise and "
+            "accurate. If you are unsure about something, say so rather "
+            "than guessing."
+        ),
+        description="System prompt prepended to every chat conversation.",
+        json_schema_extra={"category": "AI"},
+    )
 
     # Development
     backend_only: bool = Field(
