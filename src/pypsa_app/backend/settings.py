@@ -264,6 +264,14 @@ class Settings(BaseSettings):
         ),
         json_schema_extra={"category": "AI"},
     )
+    llm_max_tool_iterations: int = Field(
+        default=10,
+        description=(
+            "Maximum number of tool-use round-trips per chat request. "
+            "Prevents runaway loops when a model keeps calling tools."
+        ),
+        json_schema_extra={"category": "AI"},
+    )
     llm_system_prompt: str = Field(
         default=(
             "You are a helpful assistant for PyPSA, an open-source energy "
