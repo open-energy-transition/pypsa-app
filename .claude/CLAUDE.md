@@ -9,6 +9,7 @@ You are assisting with the AI Integration work on the OET fork of `pypsa-app`. O
 3. **This `.claude/` folder only exists on `dev-llm-implementation` and its derivative branches.** Never let it leak onto `main` — it will generate merge conflicts on upstream syncs.
 4. **GitHub is the source of truth** for project state (sprints, priorities, statuses). Do not create local snapshot files that will drift.
 5. **Conventional commits** (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`). Enforced by pre-commit.
+6. **Implement first, test after — no TDD.** Write working code first, verify it manually, then write tests against the real implementation.
 
 ## What lives where
 
