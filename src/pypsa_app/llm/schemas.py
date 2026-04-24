@@ -31,3 +31,11 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     model: str = Field(..., description="Model that actually produced the reply.")
+    truncated: bool = Field(
+        default=False,
+        description=(
+            "True when the tool-use loop hit its iteration cap and the "
+            "assistant soft-stopped with a summary. The client may prompt "
+            "the user to say 'continue' to resume."
+        ),
+    )
