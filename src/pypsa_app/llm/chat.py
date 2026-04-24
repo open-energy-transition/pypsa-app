@@ -92,9 +92,7 @@ async def _execute_tool(
         return f"Unknown tool: {name}", True
     logger.info("LLM tool call: %s input=%s", name, tool_input)
     try:
-        result = await asyncio.to_thread(
-            tool.handler, db=db, user=user, **tool_input
-        )
+        result = await asyncio.to_thread(tool.handler, db=db, user=user, **tool_input)
     except Exception as exc:  # noqa: BLE001
         logger.exception("Tool %s failed", name)
         return f"Tool {name} failed: {type(exc).__name__}", True

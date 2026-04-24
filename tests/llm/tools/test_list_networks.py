@@ -99,9 +99,7 @@ def test_visibility_is_string_value(monkeypatch, fake_user):
 
 
 def test_naive_datetime_gets_z_suffix(monkeypatch, fake_user):
-    net = make_network(
-        owner_id=fake_user.id, created_at=datetime(2026, 1, 2, 3, 4, 5)
-    )
+    net = make_network(owner_id=fake_user.id, created_at=datetime(2026, 1, 2, 3, 4, 5))
     monkeypatch.setattr(list_networks, "_query_networks", lambda **_: ([net], 1))
     row = list_networks.handler(db=None, user=fake_user)["networks"][0]
     assert row["created_at"].endswith("Z")
