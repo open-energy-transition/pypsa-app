@@ -21,6 +21,13 @@ class FakeNetwork:
     filename: str
     visibility: Any
     created_at: datetime | None = None
+    update_history: list[str] | None = None
+    file_size: int | None = None
+    source_run_id: UUID | None = None
+    dimensions_count: dict[str, Any] | None = None
+    components_count: dict[str, Any] | None = None
+    facets: dict[str, Any] | None = None
+    meta: dict[str, Any] | None = None
 
 
 @dataclass
@@ -81,6 +88,13 @@ def make_network(
     filename: str = "net-a.nc",
     visibility: str = "private",
     created_at: datetime | None = None,
+    update_history: list[str] | None = None,
+    file_size: int | None = None,
+    source_run_id: UUID | None = None,
+    dimensions_count: dict[str, Any] | None = None,
+    components_count: dict[str, Any] | None = None,
+    facets: dict[str, Any] | None = None,
+    meta: dict[str, Any] | None = None,
 ) -> FakeNetwork:
     return FakeNetwork(
         id=uuid4(),
@@ -89,4 +103,11 @@ def make_network(
         filename=filename,
         visibility=FakeVisibility(value=visibility),
         created_at=created_at or datetime(2026, 4, 23, 12, 0, tzinfo=UTC),
+        update_history=update_history,
+        file_size=file_size,
+        source_run_id=source_run_id,
+        dimensions_count=dimensions_count,
+        components_count=components_count,
+        facets=facets,
+        meta=meta,
     )

@@ -15,9 +15,18 @@ def test_list_networks_is_registered():
     assert callable(tool.handler)
 
 
+def test_get_network_detail_is_registered():
+    assert "get_network_detail" in tools_pkg.REGISTRY
+    tool = tools_pkg.REGISTRY["get_network_detail"]
+    assert tool.name == "get_network_detail"
+    assert callable(tool.handler)
+
+
 def test_anthropic_tool_specs_shape():
     specs = tools_pkg.anthropic_tool_specs()
-    assert any(s["name"] == "list_networks" for s in specs)
+    names = {s["name"] for s in specs}
+    assert "list_networks" in names
+    assert "get_network_detail" in names
     for spec in specs:
         assert set(spec.keys()) == {"name", "description", "input_schema"}
 
