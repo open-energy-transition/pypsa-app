@@ -25,13 +25,24 @@ You are assisting with the AI Integration work on the OET fork of `pypsa-app`. O
 
 ## On session start — capture current state
 
-Before proposing work, check:
+**Do this proactively, without being asked.** The user should never have to say "check the project status" — surfacing the current Sprint state, recently merged PRs, and the next Ready issue is part of orienting at session start. Report it as part of the opening turn whenever the user asks anything about "what's next", project state, or exploration.
+
+**Always `git fetch` first and cross-check the remote — local-only state is stale by default.** PR approval and merge happen on GitHub, not locally, so:
+- A squash-merged PR leaves your local task branch looking "ahead of origin" when it has in fact been merged. That stale state is expected — task branches are kept locally on purpose as a record of past work; do **not** treat them as in-flight and do **not** auto-delete them.
+- After confirming the current branch's PR is merged, **switch to `dev-llm-implementation` and pull**, then wait there until the user picks the next task. Do not create a new task branch until the user agrees on which issue to pick up.
 
 ```
-# What's my current branch, what's ahead of dev-llm-implementation?
-git status && git log --oneline dev-llm-implementation..HEAD
+# Sync remote refs FIRST — never report state from local-only data
+git fetch origin
 
-# What's currently in the active sprint?
+# What's my current branch, what's on origin, what's been merged recently?
+git status
+git log --oneline origin/dev-llm-implementation..HEAD       # commits not yet on remote dev branch
+git log --oneline dev-llm-implementation..origin/dev-llm-implementation  # commits the local dev branch is missing
+gh pr list --state merged --limit 5 --json number,title,mergedAt,headRefName,baseRefName
+gh issue list --state closed --limit 5 --json number,title,closedAt
+
+# What's currently in the active sprint? (re-run every session — don't trust prior snapshots)
 gh api graphql -f query='query {
   node(id: "PVT_kwDOB88FCc4BVUZi") {
     ... on ProjectV2 {
