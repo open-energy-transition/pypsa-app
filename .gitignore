@@ -49,6 +49,8 @@ infra/
 !.claude/
 AGENTS.md
 .mcp.json
+.pi/
+.pi-lens/
 
 # IDEs
 .vscode/
@@ -76,12 +78,14 @@ htmlcov/
 compose/compose.prod.yaml
 compose/.env
 compose/.env.dev
+compose/compose.override.yaml
 
 # Alembic
 alembic/versions/*.pyc
 
 # Frontend
 node_modules/
+package-lock.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
