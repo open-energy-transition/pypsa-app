@@ -17,7 +17,7 @@ import pypsa
 from pypsa_app.backend.models import Network, Permission, User, Visibility
 from pypsa_app.backend.permissions import has_permission
 from pypsa_app.backend.settings import settings
-from pypsa_app.backend.utils.path_validation import validate_path
+from pypsa_app.backend.utils.validation import validate_path
 from pypsa_app.backend.utils.serializers import sanitize_metadata
 
 if TYPE_CHECKING:

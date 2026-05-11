@@ -1,40 +1,36 @@
-"""Security allowlists for PyPSA API inputs to prevent arbitrary code execution"""
-
-from typing import Final
-
-ALLOWED_STATISTICS: Final[frozenset[str]] = frozenset(
+ALLOWED_STATISTICS: frozenset[str] = frozenset(
     {
-        "capex",
-        "installed_capex",
-        "expanded_capex",
-        "opex",
-        "system_cost",
-        "revenue",
-        "market_value",
-        "installed_capacity",
-        "expanded_capacity",
-        "optimal_capacity",
-        "supply",
-        "withdrawal",
-        "curtailment",
         "capacity_factor",
-        "transmission",
+        "capex",
+        "curtailment",
         "energy_balance",
+        "expanded_capacity",
+        "expanded_capex",
+        "fom",
+        "installed_capacity",
+        "installed_capex",
+        "market_value",
+        "opex",
+        "optimal_capacity",
+        "overnight_cost",
         "prices",
+        "revenue",
+        "supply",
+        "system_cost",
+        "transmission",
+        "withdrawal",
     }
 )
 
-ALLOWED_CHART_TYPES: Final[frozenset[str]] = frozenset(
+ALLOWED_CHART_TYPES: frozenset[str] = frozenset(
     {
         "area",
         "bar",
+        "box",
+        "histogram",
+        "line",
         "map",
         "scatter",
-        "line",
-        "box",
         "violin",
-        "histogram",
     }
 )
-
-__all__ = ["ALLOWED_STATISTICS", "ALLOWED_CHART_TYPES"]
