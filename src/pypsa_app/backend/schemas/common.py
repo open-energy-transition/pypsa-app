@@ -3,13 +3,14 @@
 from pydantic import BaseModel
 
 
-class PaginationMeta(BaseModel):
-    """Pagination metadata"""
+class ListMeta(BaseModel):
+    """List endpoint metadata: pagination offsets and counts."""
 
     total: int
-    skip: int
+    offset: int
     limit: int
     count: int
+
 
 
 class MessageResponse(BaseModel):

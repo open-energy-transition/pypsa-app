@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
 from pypsa_app.backend.models import RunStatus, Visibility
 from pypsa_app.backend.schemas.auth import UserPublicResponse
 from pypsa_app.backend.schemas.backend import BackendPublicResponse
-from pypsa_app.backend.schemas.common import PaginationMeta
+from pypsa_app.backend.schemas.common import ListMeta
 from pypsa_app.backend.settings import settings
 
 
@@ -108,7 +108,7 @@ class RunResponse(RunSummary):
         return f"{parsed.scheme}://{parsed.hostname}/***"
 
 
-class RunListMeta(PaginationMeta):
+class RunListMeta(ListMeta):
     """Extended pagination meta with run-specific filter options."""
 
     statuses: list[str] | None = None

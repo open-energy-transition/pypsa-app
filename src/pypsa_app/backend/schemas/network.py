@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict
 
 from pypsa_app.backend.models import Visibility
 from pypsa_app.backend.schemas.auth import UserPublicResponse
-from pypsa_app.backend.schemas.common import PaginationMeta
+from pypsa_app.backend.schemas.common import ListMeta
 
 
 class NetworkResponse(BaseModel):
@@ -40,7 +40,7 @@ class NetworkResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class NetworkListMeta(PaginationMeta):
+class NetworkListMeta(ListMeta):
     """Extended pagination meta with network-specific fields"""
 
     owners: list[UserPublicResponse] | None = None

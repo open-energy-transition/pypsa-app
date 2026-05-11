@@ -6,7 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from pypsa_app.backend.models import UserRole
-from pypsa_app.backend.schemas.common import PaginationMeta
+from pypsa_app.backend.schemas.common import ListMeta
 
 
 class UserPublicResponse(BaseModel):
@@ -33,7 +33,7 @@ class UserListResponse(BaseModel):
     """Paginated list of users"""
 
     data: list[UserResponse]
-    meta: PaginationMeta
+    meta: ListMeta
 
 
 class UserRoleUpdate(BaseModel):
