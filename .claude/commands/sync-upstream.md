@@ -28,9 +28,9 @@ Steps:
    ```
    `.claude/` should survive untouched because it only exists on this branch.
 
-4. Verify `.claude/` did NOT get introduced on `main`:
+4. Verify Category A paths (see `.claude/project/main-pr-strategy.md`) did NOT get introduced on `main`:
    ```
-   git ls-tree main -- .claude
+   git ls-tree main -- .claude .sandcastle CLAUDE.md AGENTS.md
    ```
    Output must be empty. If not, revert the offending commit on `main` before pushing.
 
