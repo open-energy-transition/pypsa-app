@@ -71,7 +71,7 @@ where = ["src"]
 version_scheme = "no-guess-dev"
 
 [tool.ruff]
-exclude = [".sandcastle", "tests/e2e/tests/"]
+exclude = ["tests/e2e/tests/"]
 
 [tool.ruff.lint]
 select = [
