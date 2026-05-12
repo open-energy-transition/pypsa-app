@@ -55,10 +55,19 @@ done
 
 ## Closing a sprint
 
-1. Review the Sprint view: move everything that shipped to `Status = Done`.
-2. Anything unfinished: either (a) move it to next sprint (set `Sprint = <next>`), or (b) push it back to `Backlog`.
+1. Review the Sprint view: move everything that shipped to `Status = Done` and close the issue (`gh issue close <N> --reason completed`).
+2. Anything unfinished: either (a) move it to next sprint (set `Sprint = <next>`) and flip `Status = Ready`, or (b) push it back to `Backlog` (clear the Sprint field). Don't leave open items tagged with the closed sprint — they break the `sprint:@current` filter.
 3. Write a brief retro as a comment on a tracking issue, OR in the project README (Settings → Short description).
 4. Create the next sprint iteration if it doesn't exist yet.
+
+### Sprint rollover audit
+
+After closing, sanity-check the board with the audit query in `github-project.md` and grep for inconsistencies:
+
+- Any issue with `state=OPEN` and `Sprint=<closed sprint>` → roll over to the next sprint or to Backlog.
+- Any closed-not-planned issue still on the board → `deleteProjectV2Item`.
+- Any `Status=Ready` on an issue without a Sprint → either schedule or push to Backlog.
+- Backlog issues tied to the active milestone whose work is starting → flip `Status=Ready` and set a Sprint.
 
 ## Velocity tracking
 

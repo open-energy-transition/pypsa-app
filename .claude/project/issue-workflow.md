@@ -11,7 +11,7 @@ Each issue transits through this lifecycle. The Status field on the GH Project i
 | In Progress | Branch created from `dev-llm-implementation` | PR opened |
 | In Review | PR opened against `dev-llm-implementation` | PR merged / closed |
 | Blocked | Depends on external thing | Dependency resolved |
-| Done | PR merged (issue auto-closes via `Closes #N`) | — |
+| Done | PR merged + issue manually closed (see *Shipping an issue*) | — |
 
 ## Setting status via GraphQL
 
@@ -49,8 +49,19 @@ gh api graphql -f query="query { repository(owner: \"open-energy-transition\", n
 2. Push the branch, open a PR against `dev-llm-implementation` with `Closes #<N>` in the body.
 3. Set Status = `In Review` (option id `4f2e3ecb`).
 4. Request review (or self-merge for solo work — team norms TBD).
-5. After merge, the issue auto-closes. Status on the project will read as `Done` only if you also set it — do so after merge.
+5. After merge:
+   - **Manually close the linked issue** — `gh issue close <N> --reason completed`. The `Closes #N` keyword only auto-closes issues when the PR's base is the repository's *default branch* (`main`). PRs merged into `dev-llm-implementation` do not trigger auto-close.
+   - Set Status = `Done` on the project item (option id `7844fc97`).
 
 ## Blocking
 
 Set Status = `Blocked` (option id `2b60f3e1`) and add a comment on the issue explaining the dependency. Unblock by flipping back to the previous status when the dependency clears.
+
+## Scoping out / wontfix
+
+For an issue that won't ship:
+
+1. `gh issue close <N> --reason "not planned"` — marks the issue closed with the *not planned* state-reason (distinct from a normal "completed" close).
+2. Remove it from the project board so it doesn't linger in active views — use `deleteProjectV2Item` (see `github-project.md` → *Useful project-item mutations*). The issue itself stays on the repo for history.
+
+Setting Status = `Done` for a not-planned issue is misleading — the board's Done column should mean shipped, not abandoned.
