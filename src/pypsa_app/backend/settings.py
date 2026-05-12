@@ -3,8 +3,10 @@
 from pathlib import Path
 from typing import Self
 
-from pydantic import Field, model_validator
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from pypsa_app.llm.settings import LLMSettings
 
 API_V1_PREFIX = "/api/v1"
 SESSION_COOKIE_NAME = "pypsa_session"
@@ -58,6 +60,7 @@ class Settings(BaseSettings):
     # Authentication
     enable_auth: bool = Field(
         default=False,
+        validation_alias=AliasChoices("AUTH_ENABLED", "ENABLE_AUTH"),
         description="Enable GitHub OAuth authentication",
         json_schema_extra={"category": "Authentication"},
     )
@@ -210,79 +213,6 @@ class Settings(BaseSettings):
         """Whether SMTP email notifications are configured."""
         return self.smtp_host is not None
 
-    # AI
-    anthropic_api_key: str | None = Field(
-        default=None,
-        description=("Anthropic API key for Claude-powered chat features (optional)"),
-        json_schema_extra={"category": "AI"},
-    )
-    anthropic_base_url: str | None = Field(
-        default=None,
-        description=(
-            "Anthropic API base URL. Leave unset for api.anthropic.com. "
-            "Override to use an Anthropic-compatible provider "
-            "(e.g. http://localhost:11434 for Ollama, "
-            "https://openrouter.ai/api/v1 for OpenRouter, "
-            "or a local llama.cpp server)."
-        ),
-        json_schema_extra={"category": "AI"},
-    )
-    llm_model_default: str = Field(
-        default="qwen3.5:9b",
-        description=(
-            "Default model ID for the chat endpoint when the request omits "
-            "`model`. Use a model available at the configured provider "
-            "(e.g. `qwen3.5:9b` for Ollama, `claude-opus-4-7` for Anthropic)."
-        ),
-        json_schema_extra={"category": "AI"},
-    )
-    llm_thinking_enabled: bool = Field(
-        default=False,
-        description=(
-            "Enable extended thinking in chat replies. Off by default because "
-            "thinking tokens are counted against `max_tokens` and many local "
-            "models waste output on visible reasoning. Note: not portable "
-            "across all providers — Claude Opus 4.7 rejects the `enabled` "
-            "shape and requires adaptive thinking instead."
-        ),
-        json_schema_extra={"category": "AI"},
-    )
-    llm_thinking_budget_tokens: int = Field(
-        default=4000,
-        description=(
-            "Token budget passed to the provider when thinking is enabled. "
-            "Ollama accepts but does not enforce this value; Anthropic "
-            "classic-thinking models require it strictly less than max_tokens."
-        ),
-        json_schema_extra={"category": "AI", "depends_on": "llm_thinking_enabled"},
-    )
-    llm_max_tokens: int = Field(
-        default=16000,
-        description=(
-            "Maximum tokens the model may generate per chat response "
-            "(includes thinking tokens when thinking is enabled)."
-        ),
-        json_schema_extra={"category": "AI"},
-    )
-    llm_max_tool_iterations: int = Field(
-        default=10,
-        description=(
-            "Maximum number of tool-use round-trips per chat request. "
-            "Prevents runaway loops when a model keeps calling tools."
-        ),
-        json_schema_extra={"category": "AI"},
-    )
-    llm_system_prompt: str = Field(
-        default=(
-            "You are a helpful assistant for PyPSA, an open-source energy "
-            "system optimization framework. Keep replies concise and "
-            "accurate. If you are unsure about something, say so rather "
-            "than guessing."
-        ),
-        description="System prompt prepended to every chat conversation.",
-        json_schema_extra={"category": "AI"},
-    )
-
     # Development
     backend_only: bool = Field(
         default=False,
@@ -297,6 +227,9 @@ class Settings(BaseSettings):
         ),
         json_schema_extra={"category": "Development", "depends_on": "backend_only"},
     )
+
+    # LLM
+    llm: LLMSettings = Field(default_factory=LLMSettings)
 
     @model_validator(mode="after")
     def validate_auth_settings(self) -> Self:

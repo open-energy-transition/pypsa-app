@@ -1,205 +1,245 @@
-"""Tests for the get_network_detail LLM tool handler and metadata."""
+"""Tests for GetNetworkDetailTool — retrieves a single network by id."""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
-from uuid import uuid4
+from unittest.mock import AsyncMock, MagicMock
 
-from pypsa_app.llm.tools import get_network_detail
-from tests.conftest import FakeUser, make_network
+import httpx
+import pytest
 
-
-def _patch(monkeypatch, *, network, allowed: bool = True) -> None:
-    """Stub out DB query and permission check for the handler."""
-    monkeypatch.setattr(get_network_detail, "_query_network", lambda **_: network)
-    monkeypatch.setattr(get_network_detail, "can_access", lambda _u, _r: allowed)
+from pypsa_app.llm.tools.base import ToolContext
 
 
-def test_tool_metadata_shape():
-    assert get_network_detail.NAME == "get_network_detail"
-    assert len(get_network_detail.DESCRIPTION) > 100
-    schema = get_network_detail.INPUT_SCHEMA
-    assert schema["type"] == "object"
-    assert schema["required"] == ["network_id"]
-    assert schema["properties"]["network_id"]["type"] == "string"
-    assert schema["additionalProperties"] is False
+class TestGetNetworkDetailToolInvoke:
+    """Tests that GetNetworkDetailTool calls GET /api/v1/networks/{id}
+    and returns a well-shaped payload."""
+
+    @pytest.fixture
+    def mock_http(self) -> AsyncMock:
+        """Return a mocked httpx.AsyncClient whose get() returns a network."""
+        http = AsyncMock(spec=httpx.AsyncClient)
+
+        response = MagicMock()
+        response.raise_for_status = MagicMock()
+        response.json.return_value = {
+            "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+            "name": "my-grid",
+            "filename": "my-grid.nc",
+            "file_size": 1234567,
+            "file_hash": "sha256:abc123",
+            "created_at": "2026-01-15T10:30:00Z",
+            "dimensions_count": {"snapshots": 8760},
+            "components_count": {"Bus": 100, "Generator": 20},
+            "meta": {"crs": "EPSG:4326"},
+            "facets": None,
+            "visibility": "private",
+            "owner": {
+                "id": "owner-uuid",
+                "username": "alice",
+                "email": "alice@example.com",
+                "is_approved": True,
+                "is_admin": False,
+                "created_at": "2025-01-01T00:00:00Z",
+            },
+            "tags": None,
+            "source_run_id": None,
+            "update_history": None,
+        }
+        http.get.return_value = response
+        return http
+
+    @pytest.fixture
+    def ctx(self) -> ToolContext:
+        """Return a ToolContext with an auth cookie set."""
+        return ToolContext(user_id="user_1", auth_cookie="session_abc")
+
+    @pytest.mark.anyio
+    async def test_invoke_calls_correct_endpoint(
+        self, mock_http: AsyncMock, ctx: ToolContext
+    ) -> None:
+        """The tool must call GET /api/v1/networks/{network_id}."""
+        from pypsa_app.llm.tools.get_network_detail import GetNetworkDetailTool
+
+        tool = GetNetworkDetailTool(http=mock_http)
+        network_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        await tool.invoke({"network_id": network_id}, ctx)
+
+        mock_http.get.assert_called_once()
+        call_args = mock_http.get.call_args
+        assert call_args[0][0] == f"/api/v1/networks/{network_id}"
+
+    @pytest.mark.anyio
+    async def test_invoke_forwards_auth_cookie(
+        self, mock_http: AsyncMock, ctx: ToolContext
+    ) -> None:
+        """The tool must forward the auth cookie on the internal HTTP call."""
+        from pypsa_app.llm.tools.get_network_detail import GetNetworkDetailTool
+
+        tool = GetNetworkDetailTool(http=mock_http)
+        await tool.invoke(
+            {"network_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"}, ctx
+        )
+
+        call_kwargs = mock_http.get.call_args[1]
+        assert "cookies" in call_kwargs
+        assert call_kwargs["cookies"] == {"pypsa_session": "session_abc"}
+
+    @pytest.mark.anyio
+    async def test_invoke_no_cookie_when_none(
+        self, mock_http: AsyncMock
+    ) -> None:
+        """When auth_cookie is None, cookies must not be passed."""
+        from pypsa_app.llm.tools.get_network_detail import GetNetworkDetailTool
+
+        tool = GetNetworkDetailTool(http=mock_http)
+        ctx_no_cookie = ToolContext(user_id="user_1", auth_cookie=None)
+        await tool.invoke(
+            {"network_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"}, ctx_no_cookie
+        )
+
+        call_kwargs = mock_http.get.call_args[1]
+        assert call_kwargs.get("cookies") is None
+
+    @pytest.mark.anyio
+    async def test_invoke_returns_success_result_with_summary(
+        self, mock_http: AsyncMock, ctx: ToolContext
+    ) -> None:
+        """The tool must return a ToolResult with summary and data.
+
+        The summary string mentions the network name, file name, ownership
+        relative to the requesting user, and a per-component count snippet.
+        """
+        from pypsa_app.llm.tools.get_network_detail import GetNetworkDetailTool
+
+        tool = GetNetworkDetailTool(http=mock_http)
+        result = await tool.invoke(
+            {"network_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"}, ctx
+        )
+
+        assert result.is_error is False
+        assert result.error is None
+        assert result.payload is not None
+
+        # Payload must have summary and data
+        assert "summary" in result.payload
+        assert "data" in result.payload
+        assert "network" in result.payload["data"]
+        assert "my-grid" in result.payload["summary"]
+        # ctx.user_id="user_1" doesn't match owner.id="owner-uuid"
+        assert "owned by another user" in result.payload["summary"]
+
+    @pytest.mark.anyio
+    async def test_invoke_payload_contains_network_fields(
+        self, mock_http: AsyncMock, ctx: ToolContext
+    ) -> None:
+        """The slim network data in the payload mirrors a curated subset of
+        REST response fields. The full ``meta`` blob is intentionally
+        replaced by ``meta_summary`` (size + key list) and the full
+        ``owner`` object is collapsed to ``is_owner`` to keep the
+        context-window cost small."""
+        from pypsa_app.llm.tools.get_network_detail import GetNetworkDetailTool
+
+        tool = GetNetworkDetailTool(http=mock_http)
+        result = await tool.invoke(
+            {"network_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"}, ctx
+        )
+
+        network = result.payload["data"]["network"]  # type: ignore[index]
+        assert network["id"] == "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        assert network["name"] == "my-grid"
+        assert network["filename"] == "my-grid.nc"
+        assert network["file_size_bytes"] == 1234567
+        assert network["components_count"] == {"Bus": 100, "Generator": 20}
+        assert network["dimensions_count"] == {"snapshots": 8760}
+        # ctx.user_id="user_1" != owner.id="owner-uuid"
+        assert network["is_owner"] is False
+        assert network["meta_summary"]["keys"] == ["crs"]
+        assert network["meta_summary"]["size_bytes"] > 0
+
+    @pytest.mark.anyio
+    async def test_invoke_handles_http_error(
+        self, ctx: ToolContext
+    ) -> None:
+        """When the HTTP call fails, the registry catches it as an error."""
+        from pypsa_app.llm.tools import ToolRegistry
+        from pypsa_app.llm.tools.get_network_detail import GetNetworkDetailTool
+
+        mock_http = AsyncMock(spec=httpx.AsyncClient)
+        request = httpx.Request("GET", "http://internal/api/v1/networks/99")
+        response = httpx.Response(status_code=404, text="Not found", request=request)
+        mock_http.get.side_effect = httpx.HTTPStatusError(
+            "Not Found", request=request, response=response
+        )
+
+        tool = GetNetworkDetailTool(http=mock_http)
+        registry = ToolRegistry([tool])
+        result = await registry.invoke("get_network_detail", {"network_id": "99"}, ctx)
+
+        assert result.is_error is True
+        assert result.payload is None
+        assert result.error is not None
+        assert "404" in result.error
+
+    @pytest.mark.anyio
+    async def test_invoke_handles_unexpected_error(
+        self, ctx: ToolContext
+    ) -> None:
+        """When the HTTP call raises unexpectedly, the registry catches it."""
+        from pypsa_app.llm.tools import ToolRegistry
+        from pypsa_app.llm.tools.get_network_detail import GetNetworkDetailTool
+
+        mock_http = AsyncMock(spec=httpx.AsyncClient)
+        mock_http.get.side_effect = RuntimeError("connection refused")
+
+        tool = GetNetworkDetailTool(http=mock_http)
+        registry = ToolRegistry([tool])
+        result = await registry.invoke(
+            "get_network_detail",
+            {"network_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"},
+            ctx,
+        )
+
+        assert result.is_error is True
+        assert result.payload is None
+        assert result.error is not None
+        assert "connection refused" in result.error
+
+    def test_tool_has_correct_class_attributes(self) -> None:
+        """The tool must have name, description, and parameters_schema set."""
+        from pypsa_app.llm.tools.get_network_detail import GetNetworkDetailTool
+
+        assert GetNetworkDetailTool.name == "get_network_detail"
+        assert isinstance(GetNetworkDetailTool.description, str)
+        assert len(GetNetworkDetailTool.description) > 0
+        assert "parameters_schema" in GetNetworkDetailTool.__dict__
+        schema = GetNetworkDetailTool.parameters_schema
+        assert schema["type"] == "object"
+        assert "network_id" in schema["properties"]
+
+    def test_tool_to_openai_returns_valid_schema(self) -> None:
+        """to_openai() must return a valid OpenAI function-tool schema."""
+        from pypsa_app.llm.tools.get_network_detail import GetNetworkDetailTool
+
+        mock_http = AsyncMock(spec=httpx.AsyncClient)
+        tool = GetNetworkDetailTool(http=mock_http)
+        openai_schema = tool.to_openai()
+
+        assert openai_schema["type"] == "function"
+        func = openai_schema["function"]
+        assert func["name"] == "get_network_detail"
+        assert "network" in func["description"].lower()
+        assert func["parameters"]["type"] == "object"
+        assert "network_id" in func["parameters"]["properties"]
+        assert "network_id" in func["parameters"]["required"]
 
 
-def test_invalid_uuid_returns_error(fake_user):
-    out = get_network_detail.handler(db=None, user=fake_user, network_id="not-a-uuid")
-    assert out == {"error": "invalid_network_id"}
+class TestGetNetworkDetailToolSSR:
+    """Tests usable in module-level contexts (no event loop needed)."""
 
+    def test_instantiation_does_not_require_event_loop(self) -> None:
+        """Creating a GetNetworkDetailTool must not require a running event loop."""
+        from pypsa_app.llm.tools.get_network_detail import GetNetworkDetailTool
 
-def test_unknown_network_returns_not_found(monkeypatch, fake_user):
-    _patch(monkeypatch, network=None)
-    out = get_network_detail.handler(db=None, user=fake_user, network_id=str(uuid4()))
-    assert out == {"error": "network_not_found"}
-
-
-def test_unauthorized_uses_same_error_as_unknown(monkeypatch, fake_user):
-    """Don't leak existence of private networks the user can't see."""
-    other_owner = FakeUser()
-    private_net = make_network(owner_id=other_owner.id, visibility="private")
-    _patch(monkeypatch, network=private_net, allowed=False)
-    out = get_network_detail.handler(
-        db=None, user=fake_user, network_id=str(private_net.id)
-    )
-    assert out == {"error": "network_not_found"}
-
-
-def test_happy_path_field_whitelist(monkeypatch, fake_user):
-    net = make_network(
-        owner_id=fake_user.id,
-        name="Europe",
-        filename="europe.nc",
-        file_size=12345,
-        dimensions_count={"timesteps": 168, "periods": 0, "scenarios": 0},
-        components_count={"Bus": 9, "Generator": 6},
-        facets={"carriers": {"AC": {}, "DC": {}}, "countries": ["DE", "NO"]},
-        meta={"run": "x", "config": "y"},
-        update_history=["2026-04-26T10:00:00+00:00"],
-    )
-    _patch(monkeypatch, network=net)
-    out = get_network_detail.handler(db=None, user=fake_user, network_id=str(net.id))
-    assert set(out.keys()) == {
-        "id",
-        "name",
-        "filename",
-        "created_at",
-        "last_updated_at",
-        "visibility",
-        "is_owner",
-        "file_size_bytes",
-        "source_run_id",
-        "dimensions_count",
-        "components_count",
-        "carriers",
-        "countries",
-        "meta_summary",
-    }
-
-
-def test_name_falls_back_to_filename(monkeypatch, fake_user):
-    net = make_network(owner_id=fake_user.id, name=None, filename="fallback.nc")
-    _patch(monkeypatch, network=net)
-    out = get_network_detail.handler(db=None, user=fake_user, network_id=str(net.id))
-    assert out["name"] == "fallback.nc"
-
-
-def test_is_owner_true_for_owner(monkeypatch, fake_user):
-    net = make_network(owner_id=fake_user.id)
-    _patch(monkeypatch, network=net)
-    out = get_network_detail.handler(db=None, user=fake_user, network_id=str(net.id))
-    assert out["is_owner"] is True
-
-
-def test_is_owner_false_for_public_network(monkeypatch, fake_user):
-    other = FakeUser()
-    net = make_network(owner_id=other.id, visibility="public")
-    _patch(monkeypatch, network=net)
-    out = get_network_detail.handler(db=None, user=fake_user, network_id=str(net.id))
-    assert out["is_owner"] is False
-    assert out["visibility"] == "public"
-
-
-def test_carriers_returns_sorted_names_only(monkeypatch, fake_user):
-    """Carrier attributes (color, co2, etc.) must not leak into the result."""
-    net = make_network(
-        owner_id=fake_user.id,
-        facets={
-            "carriers": {
-                "DC": {"color": "purple", "co2_emissions": 0.0},
-                "AC": {"color": "orange", "co2_emissions": 0.0},
-            }
-        },
-    )
-    _patch(monkeypatch, network=net)
-    out = get_network_detail.handler(db=None, user=fake_user, network_id=str(net.id))
-    assert out["carriers"] == ["AC", "DC"]
-
-
-def test_countries_default_empty(monkeypatch, fake_user):
-    net = make_network(owner_id=fake_user.id, facets={"carriers": {}})
-    _patch(monkeypatch, network=net)
-    out = get_network_detail.handler(db=None, user=fake_user, network_id=str(net.id))
-    assert out["countries"] == []
-
-
-def test_meta_summary_excludes_values(monkeypatch, fake_user):
-    """The point of meta_summary is to avoid context blow-up — only keys+size."""
-    big_value = "x" * 5000
-    net = make_network(
-        owner_id=fake_user.id,
-        meta={"big": big_value, "small": "ok"},
-    )
-    _patch(monkeypatch, network=net)
-    out = get_network_detail.handler(db=None, user=fake_user, network_id=str(net.id))
-    summary = out["meta_summary"]
-    assert summary["keys"] == ["big", "small"]
-    assert summary["size_bytes"] > 5000
-    assert big_value not in str(out)
-
-
-def test_meta_summary_handles_empty_meta(monkeypatch, fake_user):
-    net = make_network(owner_id=fake_user.id, meta=None)
-    _patch(monkeypatch, network=net)
-    out = get_network_detail.handler(db=None, user=fake_user, network_id=str(net.id))
-    assert out["meta_summary"] == {"size_bytes": 2, "keys": []}
-
-
-def test_naive_datetime_gets_z_suffix(monkeypatch, fake_user):
-    net = make_network(owner_id=fake_user.id, created_at=datetime(2026, 1, 2, 3, 4, 5))
-    _patch(monkeypatch, network=net)
-    out = get_network_detail.handler(db=None, user=fake_user, network_id=str(net.id))
-    assert out["created_at"].endswith("Z")
-
-
-def test_aware_datetime_preserved(monkeypatch, fake_user):
-    when = datetime(2026, 1, 2, 3, 4, 5, tzinfo=UTC)
-    net = make_network(owner_id=fake_user.id, created_at=when)
-    _patch(monkeypatch, network=net)
-    out = get_network_detail.handler(db=None, user=fake_user, network_id=str(net.id))
-    assert out["created_at"] == when.isoformat()
-
-
-def test_last_updated_at_takes_latest_history_entry(monkeypatch, fake_user):
-    net = make_network(
-        owner_id=fake_user.id,
-        update_history=[
-            "2026-04-20T10:00:00+00:00",
-            "2026-04-25T10:00:00+00:00",
-        ],
-    )
-    _patch(monkeypatch, network=net)
-    out = get_network_detail.handler(db=None, user=fake_user, network_id=str(net.id))
-    assert out["last_updated_at"] == "2026-04-25T10:00:00+00:00"
-
-
-def test_last_updated_at_none_when_no_history(monkeypatch, fake_user):
-    net = make_network(owner_id=fake_user.id, update_history=None)
-    _patch(monkeypatch, network=net)
-    out = get_network_detail.handler(db=None, user=fake_user, network_id=str(net.id))
-    assert out["last_updated_at"] is None
-
-
-def test_source_run_id_serialized_as_string(monkeypatch, fake_user):
-    run_id = uuid4()
-    net = make_network(owner_id=fake_user.id, source_run_id=run_id)
-    _patch(monkeypatch, network=net)
-    out = get_network_detail.handler(db=None, user=fake_user, network_id=str(net.id))
-    assert out["source_run_id"] == str(run_id)
-
-
-def test_source_run_id_none_when_unset(monkeypatch, fake_user):
-    net = make_network(owner_id=fake_user.id, source_run_id=None)
-    _patch(monkeypatch, network=net)
-    out = get_network_detail.handler(db=None, user=fake_user, network_id=str(net.id))
-    assert out["source_run_id"] is None
-
-
-def test_uuid_object_input_accepted(monkeypatch, fake_user):
-    """Anthropic SDK passes strings, but defensive parse should not reject UUIDs."""
-    net = make_network(owner_id=fake_user.id)
-    _patch(monkeypatch, network=net)
-    out = get_network_detail.handler(db=None, user=fake_user, network_id=net.id)
-    assert "error" not in out
+        mock_http = MagicMock(spec=httpx.AsyncClient)
+        tool = GetNetworkDetailTool(http=mock_http)
+        assert tool.name == "get_network_detail"

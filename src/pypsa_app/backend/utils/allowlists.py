@@ -7,6 +7,7 @@ ALLOWED_STATISTICS: Final[frozenset[str]] = frozenset(
         "capex",
         "installed_capex",
         "expanded_capex",
+        "fom",
         "opex",
         "system_cost",
         "revenue",
