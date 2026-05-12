@@ -16,6 +16,7 @@ and custom integrations.
 - Network Management
 - Generate network statistics and plots
 - Interactive geospatial visualization via Kepler.gl
+- LLM-powered chat assistant (feature-flagged) for natural-language network analysis
 - Multiple deployments
   - Deploy with minimal setup for single user local dashboard and simple analysis of a few networks
   - Or use scalable deployment with user management, asynchronous task scheduling, in-memory caching and a Postgres database
@@ -65,15 +66,23 @@ that communicate via Redis (used for task queuing, result storage and caching),
 with PostgreSQL storing network and app data and a file storage containing network files.
 It is useful to run the app for multiple users but not necessary for single user local use.
 
-Checkout the `compose/compose.full.yaml` example compose file, the [configuration](README##Configuration) options and also have a look on the [Architecture](README##Architecture).
+Checkout the `compose/compose.full.yaml` example compose file, the [configuration](#configuration) options and also have a look on the [Architecture](#architecture).
 
 > [!WARNING]
 > This app is in early development and it is **not** recommended to deploy the app in production! Also, it is recommended to add further infrastructure, like a reverse proxy, proper logging, monitoring etc.
 
 ## Configuration
 
-> [!NOTE]
-> Configuration documentation is coming soon.
+See [docs/configuration.md](docs/configuration.md) for the full environment variable reference,
+including LLM chat settings.
+
+### Quick Start — Chat Assistant
+
+```bash
+export CHAT_ENABLED=true
+export LLM_API_KEY=your-key
+export LLM_API_BASE=http://localhost:11434/v1
+```
 
 ## Architecture
 

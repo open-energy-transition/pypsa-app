@@ -1,0 +1,32 @@
+# tests/e2e/compose.yaml
+# Full-stack app service for E2E test harness.
+# Reuses the repo-root Dockerfile 'full' stage (backend + frontend).
+#
+# Usage:
+#   docker compose -f compose.yaml up -d --build --wait
+#   curl http://127.0.0.1:8765/health
+
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      target: full
+    environment:
+      CHAT_ENABLED: "true"
+      LLM_PROVIDER: openai
+      LLM_MODEL: ${LLM_MODEL:-qwen3.5:9b}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_API_BASE: ${LLM_API_BASE:-http://host.docker.internal:11434/v1}
+      LLM_MAX_TOKENS: "1024"
+      AUTH_ENABLED: "false"
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/test.db}
+    ports:
+      - "127.0.0.1:8765:8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8000/health"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
