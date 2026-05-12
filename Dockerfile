@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # Stage 1: Builder stage
-FROM python:3.13-slim AS builder
+FROM python:3.13-slim@sha256:d49c1ff87eb98eac346fc250f52925f726eb913c43a92854246dd03c9692ad67 AS builder
 
 WORKDIR /app
 
@@ -27,7 +27,7 @@ COPY .git/ .git/
 RUN uv sync --frozen --extra full --no-dev
 
 # Stage 2: Runtime stage (pypsa-app backend)
-FROM python:3.13-slim AS backend
+FROM python:3.13-slim@sha256:d49c1ff87eb98eac346fc250f52925f726eb913c43a92854246dd03c9692ad67 AS backend
 
 WORKDIR /app
 
@@ -64,7 +64,7 @@ CMD ["pypsa-app", "serve"]
 
 
 # Stage 3: Build Svelte frontend (main app)
-FROM node:22-alpine AS app-builder
+FROM node:22-alpine@sha256:8ea2348b068a9544dae7317b4f3aafcdc032df1647bb7d768a05a5cad1a7683f AS app-builder
 
 WORKDIR /frontend
 
