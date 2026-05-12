@@ -1,0 +1,21 @@
+# tests/e2e/compose.stub.yaml
+# Compose override that adds a stub-LLM container when no live LLM is available.
+# Merge with compose.yaml via: docker compose -f compose.yaml -f compose.stub.yaml ...
+#
+# Usage:
+#   LLM_API_KEY= docker compose -f compose.yaml -f compose.stub.yaml up -d --build --wait
+#   curl http://127.0.0.1:8765/api/v1/health
+
+services:
+  stub-llm:
+    build:
+      context: ./stub_llm
+    environment:
+      STUB_LLM_PORT: "8000"
+    ports:
+      - "127.0.0.1:8766:8000"
+
+  app:
+    environment:
+      LLM_API_BASE: "http://stub-llm:8000/v1"
+      LLM_API_KEY: "stub"

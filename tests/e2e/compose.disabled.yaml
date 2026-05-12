@@ -1,0 +1,17 @@
+# tests/e2e/compose.disabled.yaml
+# Compose override for testing chat-disabled behaviour.
+# Merge with compose.yaml via: docker compose -f compose.yaml -f compose.disabled.yaml ...
+#
+# Usage:
+#   docker compose -f compose.yaml -f compose.disabled.yaml up -d --build --wait
+#   curl -o /dev/null -s -w "%{http_code}" -X POST .../api/v1/chat/stream
+#   # expects 404
+#
+# Uses port 8766 to avoid conflicting with the enabled stack on 8765.
+
+services:
+  app:
+    environment:
+      CHAT_ENABLED: "false"
+    ports:
+      - "127.0.0.1:8766:8000"

@@ -1,5 +1,6 @@
-# Development setup - backend only (run frontend with npm run dev)
-# Copy .env.dev.example to .env.dev and configure your settings
+# Development setup - backend + Vite dev server with HMR in separate containers.
+# Copy .env.dev.example to .env.dev and configure your settings.
+# Open http://localhost:5173/ (or http://<lan-ip>:5173/) to use the SPA.
 
 services:
   postgres:
@@ -60,6 +61,23 @@ services:
       redis:
         condition: service_healthy
     command: ["pypsa-app", "serve", "--reload", "--dev"]
+
+  pypsa-frontend:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: frontend-dev
+    container_name: pypsa-frontend
+    ports:
+    - "${FRONTEND_PORT:-5173}:5173"
+    environment:
+      VITE_BACKEND_URL: http://pypsa-app:8000
+    volumes:
+    - ../frontend/app:/app
+    - /app/node_modules
+    depends_on:
+      pypsa-app:
+        condition: service_started
 
   celery-worker:
     build:

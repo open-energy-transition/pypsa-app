@@ -3,6 +3,7 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
+from pypsa_app.backend.alembic.lock import MIGRATION_LOCK_KEY, advisory_lock
 from pypsa_app.backend.database import Base
 from pypsa_app.backend.settings import settings
 
@@ -68,10 +69,13 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        # Serialize concurrent `alembic upgrade head` calls from sibling
+        # containers (app + celery worker) on a Postgres advisory lock.
+        with advisory_lock(connection, MIGRATION_LOCK_KEY):
+            context.configure(connection=connection, target_metadata=target_metadata)
 
-        with context.begin_transaction():
-            context.run_migrations()
+            with context.begin_transaction():
+                context.run_migrations()
 
 
 if context.is_offline_mode():
