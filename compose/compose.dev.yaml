@@ -71,6 +71,7 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
+      SKIP_MIGRATIONS: "true"
     command: ["celery", "-A", "pypsa_app.backend.task_queue.task_app", "worker", "--loglevel=${CELERY_LOGLEVEL:-info}", "--concurrency=${CELERY_CONCURRENCY:-2}"]
     volumes:
     - ../src:/app/src

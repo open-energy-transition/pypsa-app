@@ -22,12 +22,13 @@ class ExploreRequest(BaseModel):
     """Request schema for interactive map via n.plot.explore()"""
 
     _ALLOWED_BRANCH_COMPONENTS: frozenset[str] = frozenset(
-        {"Line", "Link", "Transformer"}
+        {"Line", "Link", "Transformer", "Process"}
     )
 
     network_id: str = Field(..., description="Network UUID")
     branch_components: list[str] | None = Field(
-        default=None, description="Branch types to display (Line, Link, Transformer)"
+        default=None,
+        description="Branch types to display (Line, Link, Transformer, Process)",
     )
     geometry: bool = Field(
         default=False, description="Use line geometries instead of straight lines"

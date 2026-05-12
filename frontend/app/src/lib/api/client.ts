@@ -60,7 +60,20 @@ async function request<T>(endpoint: string, options: RequestInit = {}, cancellat
 
 		if (!response.ok) {
 			const error = await response.json().catch(() => ({ detail: response.statusText }));
-			const err: ApiError = new Error(error.detail || `HTTP ${response.status}: ${response.statusText}`);
+			const detail = error.detail;
+			let message: string;
+			if (typeof detail === 'string') {
+				message = detail;
+			} else if (Array.isArray(detail)) {
+				message = detail
+					.map((d) => (typeof d === 'string' ? d : d?.msg ? `${(d.loc ?? []).join('.')}: ${d.msg}` : JSON.stringify(d)))
+					.join('; ');
+			} else if (detail) {
+				message = JSON.stringify(detail);
+			} else {
+				message = `HTTP ${response.status}: ${response.statusText}`;
+			}
+			const err: ApiError = new Error(message);
 			err.status = response.status;
 
 			// 401 = auth required, redirect to login (skip for auth endpoints themselves)
@@ -249,7 +262,7 @@ export const plots = {
 	},
 
 	async generateExplore(
-		networkIds: string | string[],
+		networkId: string,
 		options: {
 			bus_carrier?: string[];
 			query?: string;
@@ -257,17 +270,15 @@ export const plots = {
 			geometry?: boolean;
 		} = {}
 	): Promise<Record<string, unknown>> {
-		const idsArray = Array.isArray(networkIds) ? networkIds : [networkIds];
-		const cacheKey = idsArray.length === 1 ? idsArray[0] : idsArray.sort().join(',');
 		const paramsKey = JSON.stringify(options);
 
 		const response = await request<{ task_id?: string; data?: Record<string, unknown> }>('/plots/explore', {
 			method: 'POST',
 			body: JSON.stringify({
-				network_ids: idsArray,
+				network_id: networkId,
 				...options,
 			})
-		}, `explore-${cacheKey}-${paramsKey}`);
+		}, `explore-${networkId}-${paramsKey}`);
 
 		if (response.task_id) {
 			const result = await this.pollTaskStatus(response.task_id);

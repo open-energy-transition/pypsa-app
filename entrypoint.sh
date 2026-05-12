@@ -5,7 +5,9 @@ set -e
 mkdir -p /data
 chown -R appuser:appuser /data
 
-gosu appuser alembic upgrade head
+if [ "${SKIP_MIGRATIONS:-false}" != "true" ]; then
+    gosu appuser alembic upgrade head
+fi
 
 # Use tini as PID 1 to clean up zombie processes (e.g. docker health checks)
 exec tini -- gosu appuser "$@"

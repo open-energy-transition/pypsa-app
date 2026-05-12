@@ -39,6 +39,7 @@
 
 	$effect(() => {
 		if (!browser) return;
+		if (reportStore.currentNetworkId !== networkId || reportStore.loading) return;
 		const match = reportStore.reports.find((r) => slugify(r.name) === slug);
 		if (match) {
 			if (reportStore.activeReportId !== match.id) {

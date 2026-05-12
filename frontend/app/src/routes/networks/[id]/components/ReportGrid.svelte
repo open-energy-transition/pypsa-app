@@ -198,7 +198,7 @@
 				},
 				cellHeight: 80,
 				margin: 8,
-				float: false,
+				float: true,
 				animate: false,
 				minRow: 1,
 				handleClass: 'card-drag-handle',
@@ -321,6 +321,18 @@
 				});
 				batchPending = false;
 			});
+		}
+	});
+
+	// Reconcile gridstack lifecycle with fullscreen toggle.
+	// Fullscreen branch unmounts .grid-stack div; stale grid instance must be destroyed
+	// and reinit'd when returning, else makeWidget runs against a destroyed parent.
+	$effect(() => {
+		if (!mounted) return;
+		if (fullscreenRc && grid) {
+			destroyGrid();
+		} else if (!fullscreenRc && gridEl && !grid) {
+			initGrid();
 		}
 	});
 

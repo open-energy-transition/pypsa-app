@@ -57,7 +57,10 @@ def _build_explore_defaults(n: Any) -> dict[str, Any]:
         )
 
     try:
+        supported_branches = {"Line", "Link", "Transformer", "Process"}
         for c in n.branch_components:
+            if c not in supported_branches:
+                continue
             p0 = n.c[c].dynamic.get("p0")
             if p0 is not None and len(p0) > 0:
                 flow = p0.sum(axis=0)
