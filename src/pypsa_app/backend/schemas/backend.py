@@ -12,6 +12,12 @@ class UserBackendAssign(BaseModel):
     user_id: uuid.UUID
 
 
+class BackendAssign(BaseModel):
+    """Request body for assigning a backend to a user."""
+
+    backend_id: uuid.UUID
+
+
 class BackendPublicResponse(BaseModel):
     """Backend info visible to regular users (no internal URL)."""
 

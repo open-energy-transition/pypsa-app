@@ -4,10 +4,15 @@ import logging
 from uuid import UUID
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
-from pypsa_app.backend.api.deps import get_backend, get_db, require_permission
+from pypsa_app.backend.api.deps import (
+    get_backend,
+    get_db,
+    get_user,
+    require_permission,
+)
 from pypsa_app.backend.api.pagination import (
     FilteredListParams,
     apply_pagination,
@@ -22,6 +27,7 @@ from pypsa_app.backend.filters import (
     name_to_id,
 )
 from pypsa_app.backend.models import (
+    ApiKey,
     Network,
     Permission,
     Run,
@@ -31,13 +37,18 @@ from pypsa_app.backend.models import (
     Visibility,
 )
 from pypsa_app.backend.permissions import get_role_permissions
+from pypsa_app.backend.schemas.api_key import ApiKeyResponse
 from pypsa_app.backend.schemas.auth import (
     UserCreate,
     UserListResponse,
     UserResponse,
     UserRoleUpdate,
 )
-from pypsa_app.backend.schemas.backend import BackendResponse, UserBackendAssign
+from pypsa_app.backend.schemas.backend import (
+    BackendAssign,
+    BackendResponse,
+    UserBackendAssign,
+)
 from pypsa_app.backend.schemas.common import MessageResponse
 from pypsa_app.backend.schemas.network import (
     NetworkAdminUpdate,
@@ -50,6 +61,7 @@ from pypsa_app.backend.schemas.run import (
     RunResponse,
     RunSummary,
 )
+from pypsa_app.backend.schemas.stats import UserStatsResponse
 from pypsa_app.backend.services.backend_registry import backend_registry
 from pypsa_app.backend.services.email import send_account_approved_email
 
@@ -107,6 +119,72 @@ def list_users(
     )
 
 
+@router.get("/users/{user_id}", response_model=UserResponse)
+def get_user_detail(
+    user: User = Depends(get_user),
+    _admin: User = Depends(require_permission(Permission.USERS_MANAGE)),
+) -> User:
+    """Get a single user by ID."""
+    return user
+
+
+@router.get("/users/{user_id}/stats", response_model=UserStatsResponse)
+def get_user_stats(
+    user: User = Depends(get_user),
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_permission(Permission.USERS_MANAGE)),
+) -> UserStatsResponse:
+    """Aggregated activity stats for a single user."""
+    user_id = user.id
+
+    net_row = db.execute(
+        select(
+            func.count(Network.id),
+            func.coalesce(func.sum(Network.file_size), 0),
+            func.max(Network.created_at),
+        ).where(Network.user_id == user_id)
+    ).one()
+    networks_count, total_storage_bytes, max_network_created = net_row
+
+    run_rows = db.execute(
+        select(Run.status, func.count())
+        .where(Run.user_id == user_id)
+        .group_by(Run.status)
+    ).all()
+    runs_by_status = {str(status): count for status, count in run_rows}
+    runs_total = sum(runs_by_status.values())
+
+    backend_rows = db.execute(
+        select(SnakedispatchBackend.name, func.count())
+        .join(Run, Run.backend_id == SnakedispatchBackend.id)
+        .where(Run.user_id == user_id)
+        .group_by(SnakedispatchBackend.name)
+    ).all()
+    runs_by_backend = dict(backend_rows)
+
+    max_run_created = db.scalar(
+        select(func.max(Run.created_at)).where(Run.user_id == user_id)
+    )
+
+    max_api_key_used = db.scalar(
+        select(func.max(ApiKey.last_used_at)).where(ApiKey.user_id == user_id)
+    )
+
+    candidates = [
+        user.last_login, max_network_created, max_run_created, max_api_key_used,
+    ]
+    last_activity = max((c for c in candidates if c is not None), default=None)
+
+    return UserStatsResponse(
+        networks_count=networks_count,
+        runs_total=runs_total,
+        runs_by_status=runs_by_status,
+        runs_by_backend=runs_by_backend,
+        total_storage_bytes=int(total_storage_bytes),
+        last_activity=last_activity,
+    )
+
+
 @router.post("/users", response_model=UserResponse, status_code=201)
 def create_user(
     body: UserCreate,
@@ -137,16 +215,12 @@ def create_user(
 
 @router.patch("/users/{user_id}/role", response_model=UserResponse)
 def update_user_role(
-    user_id: UUID,
     role_update: UserRoleUpdate,
+    user: User = Depends(get_user),
     db: Session = Depends(get_db),
     admin: User = Depends(require_permission(Permission.USERS_MANAGE)),
 ) -> User:
     """Update user role"""
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(404, "User not found")
-
     if user.id == admin.id and role_update.role != UserRole.ADMIN:
         raise HTTPException(400, "Cannot remove your own admin role")
 
@@ -168,16 +242,12 @@ def update_user_role(
 
 @router.post("/users/{user_id}/approve", response_model=UserResponse)
 def approve_user(
-    user_id: UUID,
     background_tasks: BackgroundTasks,
+    user: User = Depends(get_user),
     db: Session = Depends(get_db),
     admin: User = Depends(require_permission(Permission.USERS_MANAGE)),
 ) -> User:
     """Approve a pending user"""
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(404, "User not found")
-
     if user.role != UserRole.PENDING:
         raise HTTPException(
             400,
@@ -202,15 +272,11 @@ def approve_user(
 
 @router.delete("/users/{user_id}", response_model=MessageResponse)
 def delete_user(
-    user_id: UUID,
+    user: User = Depends(get_user),
     db: Session = Depends(get_db),
     admin: User = Depends(require_permission(Permission.USERS_MANAGE)),
 ) -> dict:
     """Delete a user"""
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(404, "User not found")
-
     if user.id == admin.id:
         raise HTTPException(400, "Cannot delete yourself")
 
@@ -467,6 +533,14 @@ def list_backends(
     ).all()
 
 
+@router.get("/backends/{backend_id}", response_model=BackendResponse)
+def get_backend_detail(
+    backend: SnakedispatchBackend = Depends(get_backend),
+) -> SnakedispatchBackend:
+    """Get a single backend by ID."""
+    return backend
+
+
 @router.get("/backends/{backend_id}/users", response_model=list[UserResponse])
 def list_backend_users(
     backend: SnakedispatchBackend = Depends(get_backend),
@@ -501,15 +575,11 @@ def assign_user_to_backend(
 
 @router.delete("/backends/{backend_id}/users/{user_id}", response_model=MessageResponse)
 def unassign_user_from_backend(
-    user_id: UUID,
-    db: Session = Depends(get_db),
+    user: User = Depends(get_user),
     backend: SnakedispatchBackend = Depends(get_backend),
+    db: Session = Depends(get_db),
 ) -> dict:
     """Remove a user from a backend."""
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(404, "User not found")
-
     if user not in backend.users:
         raise HTTPException(404, "User is not assigned to this backend")
 
@@ -521,3 +591,74 @@ def unassign_user_from_backend(
         backend.name,
     )
     return {"message": f"User {user.username} removed from backend {backend.name}"}
+
+
+# --- User-side many-to-many mirrors and user-scoped api-keys ---
+
+
+@router.get("/users/{user_id}/backends", response_model=list[BackendResponse])
+def list_user_backends(
+    user: User = Depends(get_user),
+    _admin: User = Depends(require_permission(Permission.SYSTEM_MANAGE)),
+) -> list[SnakedispatchBackend]:
+    """List backends assigned to a user."""
+    return user.backends
+
+
+@router.post("/users/{user_id}/backends", response_model=MessageResponse)
+def assign_backend_to_user(
+    body: BackendAssign,
+    user: User = Depends(get_user),
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_permission(Permission.SYSTEM_MANAGE)),
+) -> dict:
+    """Assign a backend to a user (mirror of POST /backends/{id}/users)."""
+    backend = db.get(SnakedispatchBackend, body.backend_id)
+    if not backend:
+        raise HTTPException(404, "Backend not found")
+
+    if backend in user.backends:
+        raise HTTPException(409, "Backend already assigned to this user")
+
+    user.backends.append(backend)
+    db.commit()
+    logger.info("Backend %s assigned to user %s", backend.name, user.username)
+    return {"message": f"Backend {backend.name} assigned to user {user.username}"}
+
+
+@router.delete("/users/{user_id}/backends/{backend_id}", response_model=MessageResponse)
+def unassign_backend_from_user(
+    backend_id: UUID,
+    user: User = Depends(get_user),
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_permission(Permission.SYSTEM_MANAGE)),
+) -> dict:
+    """Remove a backend from a user.
+
+    Mirror of DELETE /backends/{id}/users/{user_id}.
+    """
+    backend = db.get(SnakedispatchBackend, backend_id)
+    if not backend:
+        raise HTTPException(404, "Backend not found")
+
+    if backend not in user.backends:
+        raise HTTPException(404, "Backend is not assigned to this user")
+
+    user.backends.remove(backend)
+    db.commit()
+    logger.info("Backend %s unassigned from user %s", backend.name, user.username)
+    return {"message": f"Backend {backend.name} removed from user {user.username}"}
+
+
+@router.get("/users/{user_id}/api-keys", response_model=list[ApiKeyResponse])
+def list_user_api_keys(
+    user: User = Depends(get_user),
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_permission(Permission.SYSTEM_MANAGE)),
+) -> list[ApiKey]:
+    """List API keys owned by a user."""
+    return db.scalars(
+        select(ApiKey)
+        .where(ApiKey.user_id == user.id)
+        .order_by(ApiKey.created_at.desc())
+    ).all()
