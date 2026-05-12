@@ -86,3 +86,16 @@ COPY --from=app-builder --chown=appuser:appuser /frontend/build/ src/pypsa_app/b
 
 # Copy package.json for version detection
 COPY --from=app-builder --chown=appuser:appuser /frontend/package.json frontend/app/package.json
+
+
+# Stage 5: Frontend dev server (Vite + HMR, used by compose.dev.yaml)
+FROM node:22-alpine AS frontend-dev
+
+WORKDIR /app
+
+COPY frontend/app/package*.json ./
+RUN npm ci
+
+EXPOSE 5173
+
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

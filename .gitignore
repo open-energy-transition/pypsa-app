@@ -98,3 +98,7 @@ frontend/.vite/
 # Backend static files
 src/pypsa_app/backend/static/app/
 src/pypsa_app/backend/static/map/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+.beads-credential-key

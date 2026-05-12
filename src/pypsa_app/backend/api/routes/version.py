@@ -43,4 +43,5 @@ async def get_version() -> dict:
         "frontend_map_version": frontend_map_version,
         "pypsa_version": pypsa.__version__,
         "snakedispatch_backends": [b["name"] for b in settings.resolved_backends],
+        "chat_enabled": settings.llm.chat_enabled,
     }

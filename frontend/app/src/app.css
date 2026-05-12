@@ -3,6 +3,8 @@
 @source "./routes";
 @source "./lib";
 
+@plugin "@tailwindcss/typography";
+
 @import "tw-animate-css";
 
 

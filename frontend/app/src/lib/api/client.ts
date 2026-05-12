@@ -434,6 +434,9 @@ export const publicApi = {
 	}
 };
 
+// Chat API
+export { chat } from './chat';
+
 // API Keys
 export const apiKeys = {
 	async list(): Promise<ApiKey[]> {

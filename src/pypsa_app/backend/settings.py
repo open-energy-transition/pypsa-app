@@ -3,8 +3,10 @@
 from pathlib import Path
 from typing import Self
 
-from pydantic import Field, model_validator
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from pypsa_app.llm.settings import LLMSettings
 
 API_V1_PREFIX = "/api/v1"
 SESSION_COOKIE_NAME = "pypsa_session"
@@ -58,6 +60,7 @@ class Settings(BaseSettings):
     # Authentication
     enable_auth: bool = Field(
         default=False,
+        validation_alias=AliasChoices("AUTH_ENABLED", "ENABLE_AUTH"),
         description="Enable GitHub OAuth authentication",
         json_schema_extra={"category": "Authentication"},
     )
@@ -224,6 +227,9 @@ class Settings(BaseSettings):
         ),
         json_schema_extra={"category": "Development", "depends_on": "backend_only"},
     )
+
+    # LLM
+    llm: LLMSettings = Field(default_factory=LLMSettings)
 
     @model_validator(mode="after")
     def validate_auth_settings(self) -> Self:
