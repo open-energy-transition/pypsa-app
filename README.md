@@ -80,9 +80,13 @@ including LLM chat settings.
 
 ```bash
 export CHAT_ENABLED=true
+export LLM_PROVIDER=openai
+export LLM_MODEL=qwen3.5:9b
 export LLM_API_KEY=your-key
 export LLM_API_BASE=http://localhost:11434/v1
 ```
+
+See [docs/configuration.md](docs/configuration.md) for all `LLM_*` settings and supported providers.
 
 ## Architecture
 
