@@ -9,3 +9,4 @@ class VersionResponse(BaseModel):
     frontend_map_version: str
     pypsa_version: str
     snakedispatch_backends: list[str]
+    chat_enabled: bool = False

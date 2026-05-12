@@ -92,6 +92,14 @@ class NetworkListFilters(BaseModel):
         None,
         description="Filter by owner IDs. Use 'me' for current user.",
     )
+    sort_by: str = Query(
+        "created_at",
+        description="Field to sort by: 'created_at' (default) or 'name'.",
+    )
+    order: str = Query(
+        "desc",
+        description="Sort direction: 'desc' (default) or 'asc'.",
+    )
 
 
 @router.get("/", response_model=NetworkListResponse)
@@ -124,12 +132,11 @@ def list_networks(
         query = query.filter(or_(*conditions))
 
     total = query.count()
-    networks = (
-        query.order_by(Network.created_at.desc())
-        .offset(filters.skip)
-        .limit(filters.limit)
-        .all()
-    )
+
+    sort_columns = {"created_at": Network.created_at, "name": Network.name}
+    sort_col = sort_columns.get(filters.sort_by, Network.created_at)
+    sort_col = sort_col.asc() if filters.order == "asc" else sort_col.desc()
+    networks = query.order_by(sort_col).offset(filters.skip).limit(filters.limit).all()
 
     # Get all unique owners for filter dropdown
     all_owners = []
