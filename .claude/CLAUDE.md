@@ -19,6 +19,7 @@ You are assisting with the AI Integration work on the OET fork of `pypsa-app`. O
 | `.claude/project/branching.md` | Branch naming rules, upstream sync procedure |
 | `.claude/project/issue-workflow.md` | Pick-up → implement → PR → merge, and how each step updates the Project |
 | `.claude/project/sprint-workflow.md` | How to plan, assign, and close a sprint |
+| `.claude/project/main-pr-strategy.md` | Two-PR split for promotions to `main`; the curated list of "never on main" and "split into a separate PR" paths |
 | `.claude/commands/pick-up.md` | `/pick-up <issue#>` — branch + mark In Progress |
 | `.claude/commands/ship.md` | `/ship` — open PR, mark In Review |
 | `.claude/commands/sync-upstream.md` | `/sync-upstream` — fetch from `PyPSA/pypsa-app`, fast-forward `main`, merge into `dev-llm-implementation` |
