@@ -397,7 +397,7 @@ def register_network_in_place(
 ) -> Network:
     """Register a .nc file at its current location without copying it."""
     file_path = file_path.resolve(strict=True)
-    if not file_path.is_file() or file_path.suffix != ".nc":
+    if not file_path.is_file() or file_path.suffix.lower() != ".nc":
         msg = f"Expected an existing .nc file, got: {file_path}"
         raise ValueError(msg)
     return import_network_file(file_path, file_path.name, user_id, db, is_external=True)

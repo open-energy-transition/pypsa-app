@@ -189,6 +189,9 @@ export interface PlotRequest {
 
 export interface VersionInfo {
 	version: string;
+	pypsa_version?: string;
+	local_mode?: boolean;
+	runs_enabled?: boolean;
 	[key: string]: unknown;
 }
 
