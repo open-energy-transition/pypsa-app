@@ -19,6 +19,10 @@
 	import ExternalLink from '@lucide/svelte/icons/external-link';
 	import X from '@lucide/svelte/icons/x';
 	import { version } from '$lib/api/client.js';
+	import { chatModalStore } from '$lib/stores/chatModal.svelte.js';
+	import { features } from '$lib/stores/features.svelte.js';
+	import ChatModal from '$lib/components/chat/ChatModal.svelte';
+	import ChatFab from '$lib/components/chat/ChatFab.svelte';
 	import Badge from '$lib/components/ui/badge/badge.svelte';
 
 	let { children, toolbar }: { children?: Snippet; toolbar?: Snippet } = $props();
@@ -108,6 +112,8 @@
 			sidebarStore.open = value === 'true';
 		}
 
+		chatModalStore.init();
+
 		// Initialize auth state and feature flags
 		await Promise.all([authStore.init(), initFeatures()]);
 
@@ -191,6 +197,10 @@
 				<div class="flex flex-1 flex-col gap-4 p-4 pt-0">
 					{@render children?.()}
 				</div>
+				{#if features.chatEnabled}
+					<ChatFab />
+					<ChatModal />
+				{/if}
 			</Sidebar.Inset>
 		</Sidebar.Provider>
 	{:else if isPublicView}

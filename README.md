@@ -16,6 +16,7 @@ and custom integrations.
 - Network Management
 - Generate network statistics and plots
 - Interactive geospatial visualization via Kepler.gl
+- LLM-powered chat assistant for natural-language network analysis
 - Multiple deployments
   - Deploy with minimal setup for single user local dashboard and simple analysis of a few networks
   - Or use scalable deployment with user management, asynchronous task scheduling, in-memory caching and a Postgres database

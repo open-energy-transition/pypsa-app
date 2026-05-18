@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { ExploreCardDefinition } from '$lib/stores/reportStore.svelte.js';
+	import { uuid } from '$lib/utils/uuid';
 	import ExploreCard from './ExploreCard.svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Checkbox } from '$lib/components/ui/checkbox';
@@ -98,7 +99,7 @@
 
 	function handleSave() {
 		const result: ExploreCardDefinition = {
-			id: initialCard?.id ?? crypto.randomUUID(),
+			id: initialCard?.id ?? uuid(),
 			type: 'explore',
 			name: name.trim() || undefined,
 			bus_carrier: buildBusCarrier(),
