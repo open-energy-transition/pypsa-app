@@ -1,4 +1,6 @@
+import { page } from "$app/state";
 import { uuid } from "$lib/utils/uuid";
+import { networkStore } from "$lib/stores/network.svelte";
 import type {
 	Message,
 	AssistantMessage,
@@ -62,7 +64,18 @@ class ChatStore {
 		this.#pinned = this.#pinned.filter((p) => p !== id);
 	}
 
-	regenerate(context: ChatContext): Promise<void> | void {
+	get context(): ChatContext {
+		const active = page.url.pathname.startsWith("/database/network")
+			? networkStore.current
+			: null;
+		return {
+			active_network_id: active?.id ?? null,
+			active_network_name: active?.name ?? null,
+			pinned_network_ids: this.#pinned,
+		};
+	}
+
+	regenerate(): Promise<void> | void {
 		if (this.running) return;
 		let lastUserIdx = -1;
 		for (let i = this.#messages.length - 1; i >= 0; i--) {
@@ -77,24 +90,20 @@ class ChatStore {
 			{ role: "user" }
 		>;
 		this.#messages = this.#messages.slice(0, lastUserIdx);
-		return this.send(lastUser.content, context);
+		return this.send(lastUser.content);
 	}
 
-	editAndResend(
-		messageId: string,
-		newContent: string,
-		context: ChatContext,
-	): Promise<void> | void {
+	editAndResend(messageId: string, newContent: string): Promise<void> | void {
 		if (this.running) return;
 		if (!newContent.trim()) return;
 		const idx = this.#messages.findIndex((m) => m.id === messageId);
 		if (idx < 0) return;
 		if (this.#messages[idx].role !== "user") return;
 		this.#messages = this.#messages.slice(0, idx);
-		return this.send(newContent.trim(), context);
+		return this.send(newContent.trim());
 	}
 
-	async send(content: string, context: ChatContext): Promise<void> {
+	async send(content: string): Promise<void> {
 		if (!content.trim() || !["idle", "done", "error"].includes(this.#status))
 			return;
 
@@ -115,7 +124,7 @@ class ChatStore {
 			await chat.stream(
 				{
 					messages: this.#messages,
-					context: { ...context, pinned_network_ids: this.#pinned },
+					context: this.context,
 				},
 				this.#abort.signal,
 				{

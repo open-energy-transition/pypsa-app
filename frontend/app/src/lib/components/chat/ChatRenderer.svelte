@@ -1,15 +1,11 @@
 <script lang="ts">
-  import { page } from '$app/stores';
   import { chatStore } from '$lib/stores/chat.svelte';
-  import { networkStore } from '$lib/stores/network.svelte';
   import type {
     Message,
     AssistantSegment,
     ReasoningSegment,
     ToolCallSegment,
     ToolCall,
-    ToolResult,
-    ChatContext,
   } from '$lib/types/chat';
   import {
     Reasoning,
@@ -75,34 +71,19 @@
     }
   }
 
-  const activeNetwork = $derived.by(() => {
-    if (!$page.url.pathname.startsWith('/database/network')) return null;
-    return networkStore.current;
-  });
-
-  const context: ChatContext = $derived({
-    active_network_id: activeNetwork?.id ?? null,
-    active_network_name: activeNetwork?.name ?? null,
-    pinned_network_ids: chatStore.pinnedIds,
-  });
-
-  const suggestions = $derived.by(() => {
-    if (activeNetwork) {
-      return [
-        `Summarize ${activeNetwork.name} in two sentences.`,
-        'List the top 5 generators by capacity.',
-        'What carriers are present?',
-      ];
-    }
-    return [
-      'List my networks.',
-      'Compare two networks.',
-      'What can you do?',
-    ];
-  });
+  const activeNetworkName = $derived(chatStore.context.active_network_name);
+  const suggestions = $derived(
+    activeNetworkName
+      ? [
+          `Summarize ${activeNetworkName} in two sentences.`,
+          'List the top 5 generators by capacity.',
+          'What carriers are present?',
+        ]
+      : ['List my networks.', 'Compare two networks.', 'What can you do?'],
+  );
 
   function onSuggestion(s: string) {
-    chatStore.send(s, context);
+    chatStore.send(s);
   }
 
   let copiedIds = $state<Set<string>>(new Set());
@@ -114,31 +95,20 @@
     }, 2000);
   }
 
-  async function copyToClipboard(text: string): Promise<boolean> {
+  async function copyMessage(msg: Message) {
+    const text =
+      msg.role === 'user'
+        ? msg.content
+        : msg.segments
+            .filter((s): s is Extract<AssistantSegment, { kind: 'text' }> => s.kind === 'text')
+            .map((s) => s.text)
+            .join('\n');
     try {
       await navigator.clipboard.writeText(text);
-      return true;
+      flashCopied(msg.id);
     } catch {
-      return false;
+      /* ignore */
     }
-  }
-
-  async function copyAssistant(msg: Message) {
-    if (msg.role !== 'assistant') return;
-    const text = msg.segments
-      .filter((s): s is Extract<AssistantSegment, { kind: 'text' }> => s.kind === 'text')
-      .map((s) => s.text)
-      .join('\n');
-    if (await copyToClipboard(text)) flashCopied(msg.id);
-  }
-
-  async function copyUser(msg: Message) {
-    if (msg.role !== 'user') return;
-    if (await copyToClipboard(msg.content)) flashCopied(msg.id);
-  }
-
-  function regenerate() {
-    chatStore.regenerate(context);
   }
 
   let editingId = $state<string | null>(null);
@@ -159,20 +129,12 @@
     const text = editText;
     editingId = null;
     editText = '';
-    chatStore.editAndResend(messageId, text, context);
+    chatStore.editAndResend(messageId, text);
   }
 
   function onEditKey(e: KeyboardEvent, messageId: string) {
     if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); return; }
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(messageId); }
-  }
-
-  function resultFromSeg(seg: { result?: ToolResult }): ToolResult | undefined {
-    return seg.result;
-  }
-
-  function hasCustomRenderer(name: string): boolean {
-    return name in toolRenderers;
   }
 
   const TOOL_LABELS: Record<string, string> = {
@@ -188,7 +150,6 @@
     return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
   }
 
-  let scrollerEl = $state<HTMLDivElement>();
   let logEl = $state<HTMLDivElement>();
   let stickToBottom = true;
   const STICK_PX = 80;
@@ -208,6 +169,43 @@
     });
   });
 </script>
+
+{#snippet renderToolCall(seg: ToolCallSegment)}
+  <Tool>
+    <ToolHeader type={humanizeToolName(seg.name)} state={statusToToolState(seg.status)} />
+    <ToolContent>
+      {#if seg.args}
+        <ToolInput input={seg.args} />
+      {/if}
+      {#if seg.result}
+        {#if seg.result.is_error}
+          <ToolOutput errorText={seg.result.error ?? 'Tool error'} />
+        {:else if seg.name in toolRenderers}
+          <div class="space-y-2 p-4">
+            <h4 class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Result</h4>
+            <ToolResultRenderer toolName={seg.name} args={seg.args} result={seg.result} />
+          </div>
+        {:else}
+          <ToolOutput output={seg.result.result} />
+        {/if}
+      {/if}
+    </ToolContent>
+  </Tool>
+{/snippet}
+
+{#snippet copyAction(id: string, msg: Message)}
+  <MessageAction
+    tooltip={copiedIds.has(id) ? 'Copied!' : 'Copy'}
+    label="Copy"
+    onclick={() => copyMessage(msg)}
+  >
+    {#if copiedIds.has(id)}
+      <CheckIcon class="size-3.5 text-emerald-500" />
+    {:else}
+      <CopyIcon class="size-3.5" />
+    {/if}
+  </MessageAction>
+{/snippet}
 
 <div
   bind:this={logEl}
@@ -256,17 +254,7 @@
         {:else}
           <div class="group flex w-full items-center justify-end gap-1" data-msg-id={msg.id}>
             <div class="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-              <MessageAction
-                tooltip={copiedIds.has(msg.id) ? 'Copied!' : 'Copy'}
-                label="Copy message"
-                onclick={() => copyUser(msg)}
-              >
-                {#if copiedIds.has(msg.id)}
-                  <CheckIcon class="size-3.5 text-emerald-500" />
-                {:else}
-                  <CopyIcon class="size-3.5" />
-                {/if}
-              </MessageAction>
+              {@render copyAction(msg.id, msg)}
               <MessageAction
                 tooltip="Edit"
                 label="Edit message"
@@ -297,33 +285,7 @@
                       {#if child.kind === 'reasoning' && child.text}
                         <Response content={child.text} />
                       {:else if child.kind === 'tool_call'}
-                        <Tool>
-                          <ToolHeader
-                            type={humanizeToolName(child.name)}
-                            state={statusToToolState(child.status)}
-                          />
-                          <ToolContent>
-                            {#if child.args}
-                              <ToolInput input={child.args} />
-                            {/if}
-                            {#if child.result}
-                              {#if child.result.is_error}
-                                <ToolOutput errorText={child.result.error ?? 'Tool error'} />
-                              {:else if hasCustomRenderer(child.name)}
-                                <div class="space-y-2 p-4">
-                                  <h4 class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Result</h4>
-                                  <ToolResultRenderer
-                                    toolName={child.name}
-                                    args={child.args}
-                                    result={child.result}
-                                  />
-                                </div>
-                              {:else}
-                                <ToolOutput output={child.result.result} />
-                              {/if}
-                            {/if}
-                          </ToolContent>
-                        </Tool>
+                        {@render renderToolCall(child)}
                       {/if}
                     {/each}
                   </ReasoningContent>
@@ -331,49 +293,15 @@
               {:else if item.segment.kind === 'text' && item.segment.text}
                 <Response content={item.segment.text} />
               {:else if item.segment.kind === 'tool_call'}
-                {@const seg = item.segment}
-                <Tool>
-                  <ToolHeader type={humanizeToolName(seg.name)} state={statusToToolState(seg.status)} />
-                  <ToolContent>
-                    {#if seg.args}
-                      <ToolInput input={seg.args} />
-                    {/if}
-                    {#if seg.result}
-                      {#if seg.result.is_error}
-                        <ToolOutput errorText={seg.result.error ?? 'Tool error'} />
-                      {:else if hasCustomRenderer(seg.name)}
-                        <div class="space-y-2 p-4">
-                          <h4 class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Result</h4>
-                          <ToolResultRenderer
-                            toolName={seg.name}
-                            args={seg.args}
-                            result={resultFromSeg(seg)!}
-                          />
-                        </div>
-                      {:else}
-                        <ToolOutput output={seg.result.result} />
-                      {/if}
-                    {/if}
-                  </ToolContent>
-                </Tool>
+                {@render renderToolCall(item.segment)}
               {/if}
             {/each}
           </MessageContent>
           {#if !chatStore.running || !isLast}
             <MessageActions class="opacity-0 transition-opacity group-hover:opacity-100">
-              <MessageAction
-                tooltip={copiedIds.has(msg.id) ? 'Copied!' : 'Copy'}
-                label="Copy"
-                onclick={() => copyAssistant(msg)}
-              >
-                {#if copiedIds.has(msg.id)}
-                  <CheckIcon class="size-3.5 text-emerald-500" />
-                {:else}
-                  <CopyIcon class="size-3.5" />
-                {/if}
-              </MessageAction>
+              {@render copyAction(msg.id, msg)}
               {#if isLastAssistant}
-                <MessageAction tooltip="Regenerate" label="Regenerate" onclick={regenerate}>
+                <MessageAction tooltip="Regenerate" label="Regenerate" onclick={() => chatStore.regenerate()}>
                   <RefreshIcon class="size-3.5" />
                 </MessageAction>
               {/if}
@@ -382,6 +310,5 @@
         </MessageRoot>
       {/if}
     {/each}
-    <div bind:this={scrollerEl}></div>
   </div>
 </div>

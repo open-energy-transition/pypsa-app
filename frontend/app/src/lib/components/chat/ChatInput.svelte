@@ -1,28 +1,14 @@
 <script lang="ts">
-  import { page } from '$app/stores';
   import { chatStore } from '$lib/stores/chat.svelte';
-  import { networkStore } from '$lib/stores/network.svelte';
   import { Send, Square } from 'lucide-svelte';
   import Button from '$lib/components/ui/button/button.svelte';
-  import type { ChatContext } from '$lib/types/chat';
 
   let text = $state('');
   let textareaEl = $state<HTMLTextAreaElement>();
 
-  const activeNetwork = $derived.by(() => {
-    if (!$page.url.pathname.startsWith('/database/network')) return null;
-    return networkStore.current;
-  });
-
-  const context: ChatContext = $derived({
-    active_network_id: activeNetwork?.id ?? null,
-    active_network_name: activeNetwork?.name ?? null,
-    pinned_network_ids: chatStore.pinnedIds,
-  });
-
   function send() {
     if (!text.trim()) return;
-    chatStore.send(text, context);
+    chatStore.send(text);
     text = '';
   }
 
