@@ -77,13 +77,7 @@ class ChatStore {
 
 	regenerate(): Promise<void> | void {
 		if (this.running) return;
-		let lastUserIdx = -1;
-		for (let i = this.#messages.length - 1; i >= 0; i--) {
-			if (this.#messages[i].role === "user") {
-				lastUserIdx = i;
-				break;
-			}
-		}
+		const lastUserIdx = this.#messages.findLastIndex((m) => m.role === "user");
 		if (lastUserIdx < 0) return;
 		const lastUser = this.#messages[lastUserIdx] as Extract<
 			Message,
@@ -213,17 +207,10 @@ class ChatStore {
 						kind: "tool_call",
 						id: e.data.tool_call_id,
 						name: e.data.tool_name,
-						args_partial: "",
 						status: "streaming",
 						phase: this.#currentPhase,
 					};
 					m.segments.push(seg);
-				});
-				break;
-			case "ToolCallArgs":
-				this.#updateAssistant((m) => {
-					const seg = findToolCall(m.segments, e.data.tool_call_id);
-					if (seg) seg.args_partial += e.data.delta;
 				});
 				break;
 			case "ToolCallEnd":
@@ -276,11 +263,9 @@ function findToolCall(
 	segments: AssistantSegment[],
 	id: string,
 ): ToolCallSegment | undefined {
-	for (let i = segments.length - 1; i >= 0; i--) {
-		const s = segments[i];
-		if (s.kind === "tool_call" && s.id === id) return s;
-	}
-	return undefined;
+	return segments.findLast(
+		(s): s is ToolCallSegment => s.kind === "tool_call" && s.id === id,
+	);
 }
 
 export const chatStore = new ChatStore();

@@ -5,7 +5,6 @@
     AssistantSegment,
     ReasoningSegment,
     ToolCallSegment,
-    ToolCall,
   } from '$lib/types/chat';
   import {
     Reasoning,
@@ -62,7 +61,7 @@
     return plan;
   }
 
-  function statusToToolState(s: ToolCall['status']) {
+  function statusToToolState(s: ToolCallSegment['status']) {
     switch (s) {
       case 'streaming': return 'input-streaming' as const;
       case 'running': return 'input-available' as const;

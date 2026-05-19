@@ -105,3 +105,6 @@ frontend/.vite/
 # Backend static files
 src/pypsa_app/backend/static/app/
 src/pypsa_app/backend/static/map/
+
+# pi-lens local tooling artifacts
+frontend/app/.pi-lens/

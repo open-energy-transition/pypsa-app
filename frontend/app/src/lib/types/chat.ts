@@ -1,13 +1,5 @@
 export type Role = 'user' | 'assistant' | 'tool';
 
-export interface ToolCall {
-  id: string;
-  name: string;
-  args_partial: string; // streamed JSON fragment buffer
-  args?: Record<string, unknown>; // populated when ToolCallEnd arrives
-  status: 'streaming' | 'running' | 'complete' | 'error';
-}
-
 export interface ToolResult {
   tool_call_id: string;
   result: unknown | null; // tool payload (e.g. { summary, data, display_hint, chart_spec })
@@ -38,7 +30,6 @@ export interface ToolCallSegment {
   kind: 'tool_call';
   id: string;
   name: string;
-  args_partial: string;
   args?: Record<string, unknown>;
   status: 'streaming' | 'running' | 'complete' | 'error';
   result?: ToolResult;
