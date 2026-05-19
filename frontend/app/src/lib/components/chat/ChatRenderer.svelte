@@ -202,8 +202,9 @@
   $effect(() => {
     chatStore.messages;
     if (!logEl || !stickToBottom) return;
+    const el = logEl;
     requestAnimationFrame(() => {
-      scrollerEl?.scrollIntoView({ behavior: 'instant' });
+      el.scrollTop = el.scrollHeight;
     });
   });
 </script>
@@ -211,7 +212,7 @@
 <div
   bind:this={logEl}
   onscroll={handleScroll}
-  class="min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4"
+  class="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4"
   role="log"
   aria-live="polite"
   aria-busy={chatStore.status === 'streaming' || chatStore.status === 'connecting'}

@@ -39,7 +39,7 @@
   });
 </script>
 
-<div class="border-t border-border p-2">
+<div class="shrink-0 border-t border-border p-2">
   <div class="flex items-end gap-2">
     <textarea
       bind:value={text}
