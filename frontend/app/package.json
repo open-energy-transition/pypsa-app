@@ -41,14 +41,22 @@
 		"@deck.gl/layers": "9.3.2",
 		"@tailwindcss/typography": "0.5.19",
 		"@tanstack/svelte-table": "9.0.0-alpha.10",
+		"ai": "6.0.177",
+		"class-variance-authority": "0.7.1",
 		"dompurify": "3.4.2",
 		"elkjs": "0.11.1",
 		"gridstack": "12.6.0",
+		"isomorphic-dompurify": "3.12.0",
 		"js-yaml": "4.1.1",
+		"lucide-svelte": "0.553.0",
 		"maplibre-gl": "5.24.0",
 		"marked": "17.0.6",
 		"mode-watcher": "1.1.0",
 		"plotly.js-dist": "3.5.1",
-		"svelte-sonner": "1.1.1"
+		"runed": "0.37.1",
+		"svelte-sonner": "1.1.1",
+		"svelte-streamdown": "3.0.1",
+		"svelte-toolbelt": "0.10.6",
+		"tailwindcss-animate": "1.0.7"
 	}
 }

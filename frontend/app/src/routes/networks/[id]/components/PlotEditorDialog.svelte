@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { STATISTICS, CHART_TYPES, type PlotCardDefinition } from '$lib/stores/reportStore.svelte.js';
+	import { uuid } from '$lib/utils/uuid';
 	import { plotTitle } from './plotRenderer.js';
 	import PlotCard from './PlotCard.svelte';
 	import PlotGroup from './PlotGroup.svelte';
@@ -147,7 +148,7 @@
 
 	function handleSave() {
 		const result: PlotCardDefinition = {
-			id: initialPlot?.id ?? crypto.randomUUID(),
+			id: initialPlot?.id ?? uuid(),
 			type: 'plot',
 			name: name.trim() || undefined,
 			statistic,
