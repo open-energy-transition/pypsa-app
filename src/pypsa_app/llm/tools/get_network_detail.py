@@ -49,9 +49,11 @@ class GetNetworkDetailTool(Tool):
         "(timesteps/periods/scenarios), per-component counts (Bus, "
         "Generator, Line, ...), carriers and countries present, plus a "
         "small meta_summary listing the top-level meta keys and the meta "
-        "blob size in bytes. The full meta dictionary is intentionally "
-        "NOT returned — it can be tens of KB of run config on real "
-        "PyPSA-Eur networks. Use list_networks first to discover ids."
+        "blob size in bytes. Also returns `is_solved` (canonical PyPSA "
+        "`Network.is_solved` — true if an objective value is stored) "
+        "and `objective` (the solved objective value, or null). The full "
+        "meta dictionary is intentionally NOT returned. Use "
+        "list_networks first to discover ids."
     )
     parameters_schema: dict[str, Any] = {
         "type": "object",
@@ -86,6 +88,8 @@ class GetNetworkDetailTool(Tool):
             "visibility": body.get("visibility"),
             "is_owner": is_owner,
             "source_run_id": body.get("source_run_id"),
+            "is_solved": bool(body.get("is_solved", False)),
+            "objective": body.get("objective"),
             "file_size_bytes": body.get("file_size"),
             "dimensions_count": body.get("dimensions_count") or {},
             "components_count": body.get("components_count") or {},
