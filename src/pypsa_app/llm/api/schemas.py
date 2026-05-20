@@ -58,14 +58,17 @@ class ChatMessage(BaseModel):
 class ChatContext(BaseModel):
     """Context the frontend injects so the LLM knows what the user is looking at.
 
-    ``active_network_id`` / ``active_network_name`` let the system prompt
-    resolve deictic references ("this network", "here") to the currently
-    visible network.
+    ``active_network_id`` / ``active_network_name`` carry the network the
+    user is currently viewing — informational only, never used to bind
+    ambiguous references to a network. ``previous_active_network_*`` are
+    populated only on the turn where the active network changed since
+    the previous message, so the model can be told about the switch.
     """
 
     active_network_id: str | None = None
     active_network_name: str | None = None
-    pinned_network_ids: list[str] = Field(default_factory=list)
+    previous_active_network_id: str | None = None
+    previous_active_network_name: str | None = None
 
 
 class ChatRequest(BaseModel):

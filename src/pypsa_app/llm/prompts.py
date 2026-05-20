@@ -82,21 +82,34 @@ def build_system_prompt(context: ChatContext) -> str:
     """Assemble the system prompt from the base template and active context.
 
     Returns only ``BASE_SYSTEM_PROMPT`` when the context carries no
-    active-network or pinned-networks information.
+    active-network information. When ``previous_active_network_*`` is
+    set, appends a one-turn notice that the active network just changed
+    — the system prompt is rebuilt per turn, so the notice naturally
+    expires on the next turn.
     """
     parts = [BASE_SYSTEM_PROMPT]
     if context.active_network_id and context.active_network_name:
         parts.append(
             f"The user is currently viewing network "
             f'"{context.active_network_name}" (id: {context.active_network_id}). '
-            f'When they say "this network", "here", or use other deictic '
-            f"references, assume they mean that network unless they say otherwise. "
-            f"The user may ask about other networks at any time — use list_networks "
-            f"to discover them."
+            f"This is informational context only — the user may ask about "
+            f"this network or any other. Always pass an explicit network_id "
+            f"in tool calls; do not assume the active network is the subject "
+            f"of the question. Use list_networks to discover other networks."
         )
-    if context.pinned_network_ids:
-        parts.append(
-            "Additional networks pinned to this conversation: "
-            + ", ".join(context.pinned_network_ids)
-        )
+    if context.previous_active_network_id:
+        prev_name = context.previous_active_network_name or "(unknown)"
+        if context.active_network_id:
+            parts.append(
+                f"Note: since the previous message, the user's active network "
+                f'changed from "{prev_name}" '
+                f"(id: {context.previous_active_network_id}) to the current one."
+            )
+        else:
+            parts.append(
+                f"Note: since the previous message, the user navigated away "
+                f'from network "{prev_name}" (id: '
+                f"{context.previous_active_network_id}) and is no longer "
+                f"viewing a specific network."
+            )
     return "\n\n".join(parts)
