@@ -1,7 +1,7 @@
 <script lang="ts">
   import { chatModalStore } from '$lib/stores/chatModal.svelte';
   import { chatStore } from '$lib/stores/chat.svelte';
-  import { X } from 'lucide-svelte';
+  import X from '@lucide/svelte/icons/x';
 </script>
 
 <div class="shrink-0 border-b border-border px-3 py-2">

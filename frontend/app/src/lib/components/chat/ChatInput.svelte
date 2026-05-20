@@ -1,6 +1,7 @@
 <script lang="ts">
   import { chatStore } from '$lib/stores/chat.svelte';
-  import { Send, Square } from 'lucide-svelte';
+  import Send from '@lucide/svelte/icons/send';
+  import Square from '@lucide/svelte/icons/square';
   import Button from '$lib/components/ui/button/button.svelte';
 
   let text = $state('');
