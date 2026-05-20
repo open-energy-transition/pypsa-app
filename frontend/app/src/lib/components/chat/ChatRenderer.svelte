@@ -70,7 +70,7 @@
     }
   }
 
-  const activeNetworkName = $derived(chatStore.context.active_network_name);
+  const activeNetworkName = $derived(chatStore.activeNetwork?.name ?? null);
   const suggestions = $derived(
     activeNetworkName
       ? [
@@ -234,6 +234,22 @@
       {@const isLast = i === chatStore.messages.length - 1}
       {@const isLastAssistant = isLast && msg.role === 'assistant'}
       {#if msg.role === 'user'}
+        {#if msg.network_change}
+          <div class="mx-auto text-xs text-muted-foreground">
+            {#if msg.network_change.from && msg.network_change.to}
+              Switched active network:
+              <span class="font-medium">{msg.network_change.from.name ?? msg.network_change.from.id}</span>
+              →
+              <span class="font-medium">{msg.network_change.to.name ?? msg.network_change.to.id}</span>
+            {:else if msg.network_change.to}
+              Active network set:
+              <span class="font-medium">{msg.network_change.to.name ?? msg.network_change.to.id}</span>
+            {:else if msg.network_change.from}
+              Left active network:
+              <span class="font-medium">{msg.network_change.from.name ?? msg.network_change.from.id}</span>
+            {/if}
+          </div>
+        {/if}
         {#if editingId === msg.id}
           <div class="ml-auto flex w-full max-w-full flex-col gap-2">
             <Textarea

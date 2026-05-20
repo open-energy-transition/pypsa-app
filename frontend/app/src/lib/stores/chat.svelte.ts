@@ -1,4 +1,3 @@
-import { page } from "$app/state";
 import { uuid } from "$lib/utils/uuid";
 import { networkStore } from "$lib/stores/network.svelte";
 import type {
@@ -8,6 +7,8 @@ import type {
 	TextSegment,
 	ReasoningSegment,
 	ToolCallSegment,
+	NetworkChange,
+	NetworkRef,
 	ChatContext,
 	AGUIEvent,
 } from "$lib/types/chat";
@@ -17,19 +18,16 @@ type RunStatus = "idle" | "connecting" | "streaming" | "error" | "done";
 
 class ChatStore {
 	#messages = $state<Message[]>([]);
-	#pinned = $state<string[]>([]);
 	#status = $state<RunStatus>("idle");
 	#error = $state<string | null>(null);
 	#model = $state<string | null>(null);
 	#abort: AbortController | null = null;
 	#currentAssistant: AssistantMessage | null = null;
 	#currentPhase: "reasoning" | "content" = "content";
+	#lastSentNetwork: NetworkRef | null = null;
 
 	get messages() {
 		return this.#messages;
-	}
-	get pinnedIds() {
-		return this.#pinned;
 	}
 	get status() {
 		return this.#status;
@@ -51,28 +49,14 @@ class ChatStore {
 	reset() {
 		this.stop();
 		this.#messages = [];
-		this.#pinned = [];
 		this.#status = "idle";
 		this.#error = null;
 		this.#model = null;
+		this.#lastSentNetwork = null;
 	}
 
-	pinNetwork(id: string) {
-		if (!this.#pinned.includes(id)) this.#pinned = [...this.#pinned, id];
-	}
-	unpinNetwork(id: string) {
-		this.#pinned = this.#pinned.filter((p) => p !== id);
-	}
-
-	get context(): ChatContext {
-		const active = page.url.pathname.startsWith("/database/network")
-			? networkStore.current
-			: null;
-		return {
-			active_network_id: active?.id ?? null,
-			active_network_name: active?.name ?? null,
-			pinned_network_ids: this.#pinned,
-		};
+	get activeNetwork(): NetworkRef | null {
+		return networkStore.current;
 	}
 
 	regenerate(): Promise<void> | void {
@@ -101,13 +85,34 @@ class ChatStore {
 		if (!content.trim() || !["idle", "done", "error"].includes(this.#status))
 			return;
 
+		const active = networkStore.current;
+		const prev = this.#lastSentNetwork;
+		const changed =
+			prev !== null && (active?.id ?? null) !== (prev.id ?? null);
+		const networkChange: NetworkChange | undefined = changed
+			? { from: prev, to: active }
+			: undefined;
+
 		const userMsg: Message = {
 			id: uuid(),
 			role: "user",
 			content: content.trim(),
 			timestamp: new Date().toISOString(),
+			...(networkChange ? { network_change: networkChange } : {}),
 		};
 		this.#messages = [...this.#messages, userMsg];
+
+		const context: ChatContext = {
+			active_network_id: active?.id ?? null,
+			active_network_name: active?.name ?? null,
+			...(changed
+				? {
+						previous_active_network_id: prev?.id ?? null,
+						previous_active_network_name: prev?.name ?? null,
+					}
+				: {}),
+		};
+		this.#lastSentNetwork = active;
 
 		this.#abort = new AbortController();
 		this.#status = "connecting";
@@ -118,7 +123,7 @@ class ChatStore {
 			await chat.stream(
 				{
 					messages: this.#messages,
-					context: this.context,
+					context,
 				},
 				this.#abort.signal,
 				{

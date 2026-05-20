@@ -7,11 +7,22 @@ export interface ToolResult {
   error: string | null;
 }
 
+export interface NetworkRef {
+  id: string;
+  name: string | null;
+}
+
+export interface NetworkChange {
+  from: NetworkRef | null;
+  to: NetworkRef | null;
+}
+
 export interface UserMessage {
   id: string; // UUID; client-generated
   role: 'user';
   content: string;
   timestamp: string; // ISO-8601
+  network_change?: NetworkChange;
 }
 
 export interface TextSegment {
@@ -50,7 +61,8 @@ export type Message = UserMessage | AssistantMessage;
 export interface ChatContext {
   active_network_id: string | null;
   active_network_name: string | null;
-  pinned_network_ids: string[];
+  previous_active_network_id?: string | null;
+  previous_active_network_name?: string | null;
 }
 
 export type AGUIEvent =

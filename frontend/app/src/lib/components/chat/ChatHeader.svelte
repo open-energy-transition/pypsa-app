@@ -23,20 +23,12 @@
     </button>
   </div>
 
-  {#if chatStore.pinnedIds.length > 0}
-    <div class="mt-1.5 flex flex-wrap items-center gap-1">
-      {#each chatStore.pinnedIds as pinnedId (pinnedId)}
-        <span class="inline-flex items-center gap-0.5 rounded-full bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground">
-          {pinnedId}
-          <button
-            onclick={() => chatStore.unpinNetwork(pinnedId)}
-            aria-label="Unpin network {pinnedId}"
-            class="rounded-full p-0.5 text-muted-foreground hover:bg-muted-foreground/20 hover:text-foreground"
-          >
-            <X class="h-3 w-3" />
-          </button>
-        </span>
-      {/each}
+  {#if chatStore.activeNetwork}
+    <div class="mt-1.5 text-xs text-muted-foreground">
+      Active network:
+      <span class="font-medium text-foreground">
+        {chatStore.activeNetwork.name ?? chatStore.activeNetwork.id}
+      </span>
     </div>
   {/if}
 </div>
