@@ -53,6 +53,7 @@ infra/
 AGENTS.md
 .mcp.json
 CLAUDE.md
+.pi/
 
 # IDEs
 .vscode/
