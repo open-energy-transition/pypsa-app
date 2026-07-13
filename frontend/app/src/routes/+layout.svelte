@@ -20,7 +20,6 @@
 	import X from '@lucide/svelte/icons/x';
 	import { version } from '$lib/api/client.js';
 	import { chatModalStore } from '$lib/stores/chatModal.svelte.js';
-	import { features } from '$lib/stores/features.svelte.js';
 	import ChatModal from '$lib/components/chat/ChatModal.svelte';
 	import ChatFab from '$lib/components/chat/ChatFab.svelte';
 	import Badge from '$lib/components/ui/badge/badge.svelte';
