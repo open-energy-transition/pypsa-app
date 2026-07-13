@@ -627,3 +627,6 @@ export const apiKeys = {
 		return request<void>(`/auth/api-keys/${keyId}`, { method: 'DELETE' });
 	}
 };
+
+// Chat API
+export { chat } from './chat';

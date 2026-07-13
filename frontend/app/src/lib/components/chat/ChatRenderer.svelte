@@ -1,0 +1,329 @@
+<script lang="ts">
+  import { chatStore } from '$lib/stores/chat.svelte';
+  import type {
+    Message,
+    AssistantSegment,
+    ReasoningSegment,
+    ToolCallSegment,
+  } from '$lib/types/chat';
+  import {
+    Reasoning,
+    ReasoningTrigger,
+    ReasoningContent,
+  } from '$lib/components/ai-elements/reasoning';
+  import {
+    Tool,
+    ToolHeader,
+    ToolContent,
+    ToolInput,
+    ToolOutput,
+  } from '$lib/components/ai-elements/tool';
+  import { Response } from '$lib/components/ai-elements/response';
+  import {
+    Message as MessageRoot,
+    MessageContent,
+    MessageActions,
+    MessageAction,
+  } from '$lib/components/ai-elements/message';
+  import { Suggestion } from '$lib/components/ai-elements/suggestion';
+  import ToolResultRenderer from './ToolResultRenderer.svelte';
+  import { toolRenderers } from './toolRenderers';
+  import { Textarea } from '$lib/components/ui/textarea';
+  import { Button } from '$lib/components/ui/button';
+  import CopyIcon from '@lucide/svelte/icons/copy';
+  import CheckIcon from '@lucide/svelte/icons/check';
+  import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
+  import PencilIcon from '@lucide/svelte/icons/pencil';
+  import SparklesIcon from '@lucide/svelte/icons/sparkles';
+
+  type ReasoningChild = ReasoningSegment | ToolCallSegment;
+  type RenderItem =
+    | { kind: 'reasoning_group'; children: ReasoningChild[] }
+    | { kind: 'inline'; segment: AssistantSegment };
+
+  function buildPlan(segments: AssistantSegment[]): RenderItem[] {
+    const plan: RenderItem[] = [];
+    let group: { kind: 'reasoning_group'; children: ReasoningChild[] } | null = null;
+    for (const s of segments) {
+      const isReasoningPhase =
+        s.kind === 'reasoning' || (s.kind === 'tool_call' && s.phase === 'reasoning');
+      if (isReasoningPhase) {
+        if (!group) {
+          group = { kind: 'reasoning_group', children: [] };
+          plan.push(group);
+        }
+        group.children.push(s as ReasoningChild);
+      } else {
+        group = null;
+        plan.push({ kind: 'inline', segment: s });
+      }
+    }
+    return plan;
+  }
+
+  function statusToToolState(s: ToolCallSegment['status']) {
+    switch (s) {
+      case 'streaming': return 'input-streaming' as const;
+      case 'running': return 'input-available' as const;
+      case 'complete': return 'output-available' as const;
+      case 'error': return 'output-error' as const;
+    }
+  }
+
+  const activeNetworkName = $derived(chatStore.activeNetwork?.name ?? null);
+  const suggestions = $derived(
+    activeNetworkName
+      ? [
+          `Summarize ${activeNetworkName} in two sentences.`,
+          'List the top 5 generators by capacity.',
+          'What carriers are present?',
+        ]
+      : ['List my networks.', 'Compare two networks.', 'What can you do?'],
+  );
+
+  function onSuggestion(s: string) {
+    chatStore.send(s);
+  }
+
+  let copiedIds = $state<Set<string>>(new Set());
+
+  function flashCopied(id: string) {
+    copiedIds = new Set([...copiedIds, id]);
+    setTimeout(() => {
+      copiedIds = new Set([...copiedIds].filter((x) => x !== id));
+    }, 2000);
+  }
+
+  async function copyMessage(msg: Message) {
+    const text =
+      msg.role === 'user'
+        ? msg.content
+        : msg.segments
+            .filter((s): s is Extract<AssistantSegment, { kind: 'text' }> => s.kind === 'text')
+            .map((s) => s.text)
+            .join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      flashCopied(msg.id);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  let editingId = $state<string | null>(null);
+  let editText = $state('');
+
+  function startEdit(msg: Message) {
+    if (msg.role !== 'user') return;
+    editingId = msg.id;
+    editText = msg.content;
+  }
+
+  function cancelEdit() {
+    editingId = null;
+    editText = '';
+  }
+
+  function saveEdit(messageId: string) {
+    const text = editText;
+    editingId = null;
+    editText = '';
+    chatStore.editAndResend(messageId, text);
+  }
+
+  function onEditKey(e: KeyboardEvent, messageId: string) {
+    if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); return; }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(messageId); }
+  }
+
+  const TOOL_LABELS: Record<string, string> = {
+    list_networks: 'List networks',
+    get_network_detail: 'Network detail',
+    get_network_statistics: 'Network statistics',
+  };
+
+  function humanizeToolName(name: string): string {
+    if (TOOL_LABELS[name]) return TOOL_LABELS[name];
+    const cleaned = name.replace(/^tool[-_]/i, '').replace(/[_-]+/g, ' ').trim();
+    if (!cleaned) return name;
+    return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }
+
+  let logEl = $state<HTMLDivElement>();
+  let stickToBottom = true;
+  const STICK_PX = 80;
+
+  function handleScroll() {
+    if (!logEl) return;
+    const distance = logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight;
+    stickToBottom = distance < STICK_PX;
+  }
+
+  $effect(() => {
+    chatStore.messages;
+    if (!logEl || !stickToBottom) return;
+    const el = logEl;
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+  });
+</script>
+
+{#snippet renderToolCall(seg: ToolCallSegment)}
+  <Tool>
+    <ToolHeader type={humanizeToolName(seg.name)} state={statusToToolState(seg.status)} />
+    <ToolContent>
+      {#if seg.args}
+        <ToolInput input={seg.args} />
+      {/if}
+      {#if seg.result}
+        {#if seg.result.is_error}
+          <ToolOutput errorText={seg.result.error ?? 'Tool error'} />
+        {:else if seg.name in toolRenderers}
+          <div class="space-y-2 p-4">
+            <h4 class="text-muted-foreground text-xs font-medium tracking-wide uppercase">Result</h4>
+            <ToolResultRenderer toolName={seg.name} args={seg.args} result={seg.result} />
+          </div>
+        {:else}
+          <ToolOutput output={seg.result.result} />
+        {/if}
+      {/if}
+    </ToolContent>
+  </Tool>
+{/snippet}
+
+{#snippet copyAction(id: string, msg: Message)}
+  <MessageAction
+    tooltip={copiedIds.has(id) ? 'Copied!' : 'Copy'}
+    label="Copy"
+    onclick={() => copyMessage(msg)}
+  >
+    {#if copiedIds.has(id)}
+      <CheckIcon class="size-3.5 text-emerald-500" />
+    {:else}
+      <CopyIcon class="size-3.5" />
+    {/if}
+  </MessageAction>
+{/snippet}
+
+<div
+  bind:this={logEl}
+  onscroll={handleScroll}
+  class="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4"
+  role="log"
+  aria-live="polite"
+  aria-busy={chatStore.status === 'streaming' || chatStore.status === 'connecting'}
+>
+  {#if chatStore.messages.length === 0}
+    <div class="text-muted-foreground mt-8 flex flex-col items-center gap-4 text-center">
+      <SparklesIcon class="size-8 opacity-60" />
+      <div>
+        <p class="text-sm font-medium">Ask anything about your networks</p>
+        <p class="mt-1 text-xs">Try one of these to get started.</p>
+      </div>
+      <div class="flex flex-wrap items-center justify-center gap-2">
+        {#each suggestions as s}
+          <Suggestion suggestion={s} onclick={onSuggestion} />
+        {/each}
+      </div>
+    </div>
+  {/if}
+
+  <div class="flex min-w-0 max-w-full flex-col gap-4">
+    {#each chatStore.messages as msg, i (msg.id)}
+      {@const isLast = i === chatStore.messages.length - 1}
+      {@const isLastAssistant = isLast && msg.role === 'assistant'}
+      {#if msg.role === 'user'}
+        {#if msg.network_change}
+          <div class="mx-auto text-xs text-muted-foreground">
+            {#if msg.network_change.from && msg.network_change.to}
+              Switched active network:
+              <span class="font-medium">{msg.network_change.from.name ?? msg.network_change.from.id}</span>
+              →
+              <span class="font-medium">{msg.network_change.to.name ?? msg.network_change.to.id}</span>
+            {:else if msg.network_change.to}
+              Active network set:
+              <span class="font-medium">{msg.network_change.to.name ?? msg.network_change.to.id}</span>
+            {:else if msg.network_change.from}
+              Left active network:
+              <span class="font-medium">{msg.network_change.from.name ?? msg.network_change.from.id}</span>
+            {/if}
+          </div>
+        {/if}
+        {#if editingId === msg.id}
+          <div class="ml-auto flex w-full max-w-full flex-col gap-2">
+            <Textarea
+              bind:value={editText}
+              onkeydown={(e) => onEditKey(e, msg.id)}
+              placeholder="Edit and resend…"
+              rows={3}
+              class="w-full resize-none"
+            />
+            <div class="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onclick={cancelEdit}>Cancel</Button>
+              <Button size="sm" onclick={() => saveEdit(msg.id)} disabled={!editText.trim() || chatStore.running}>
+                Save &amp; resend
+              </Button>
+            </div>
+          </div>
+        {:else}
+          <div class="group flex w-full items-center justify-end gap-1" data-msg-id={msg.id}>
+            <div class="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+              {@render copyAction(msg.id, msg)}
+              <MessageAction
+                tooltip="Edit"
+                label="Edit message"
+                disabled={chatStore.running}
+                onclick={() => startEdit(msg)}
+              >
+                <PencilIcon class="size-3.5" />
+              </MessageAction>
+            </div>
+            <div class="bg-secondary text-foreground max-w-[80%] rounded-lg px-4 py-2 text-sm">
+              {msg.content}
+            </div>
+          </div>
+        {/if}
+      {:else}
+        <MessageRoot from="assistant" data-msg-id={msg.id}>
+          <MessageContent class="w-full min-w-0 max-w-full overflow-hidden">
+            {@const plan = buildPlan(msg.segments)}
+            {#each plan as item, j (j)}
+              {#if item.kind === 'reasoning_group'}
+                <Reasoning
+                  isStreaming={isLastAssistant && chatStore.running && j === plan.length - 1}
+                  defaultOpen
+                >
+                  <ReasoningTrigger />
+                  <ReasoningContent>
+                    {#each item.children as child (child.kind === 'tool_call' ? child.id : `r:${child.message_id}:${j}`)}
+                      {#if child.kind === 'reasoning' && child.text}
+                        <Response content={child.text} />
+                      {:else if child.kind === 'tool_call'}
+                        {@render renderToolCall(child)}
+                      {/if}
+                    {/each}
+                  </ReasoningContent>
+                </Reasoning>
+              {:else if item.segment.kind === 'text' && item.segment.text}
+                <Response content={item.segment.text} />
+              {:else if item.segment.kind === 'tool_call'}
+                {@render renderToolCall(item.segment)}
+              {/if}
+            {/each}
+          </MessageContent>
+          {#if !chatStore.running || !isLast}
+            <MessageActions class="opacity-0 transition-opacity group-hover:opacity-100">
+              {@render copyAction(msg.id, msg)}
+              {#if isLastAssistant}
+                <MessageAction tooltip="Regenerate" label="Regenerate" onclick={() => chatStore.regenerate()}>
+                  <RefreshIcon class="size-3.5" />
+                </MessageAction>
+              {/if}
+            </MessageActions>
+          {/if}
+        </MessageRoot>
+      {/if}
+    {/each}
+  </div>
+</div>

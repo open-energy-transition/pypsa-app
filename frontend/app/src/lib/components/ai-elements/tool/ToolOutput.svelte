@@ -1,0 +1,89 @@
+<script lang="ts">
+	import { cn } from "$lib/utils";
+	import { CopyButton } from "$lib/components/ai-elements/copy-button";
+	import type { Snippet } from "svelte";
+
+	interface ToolOutputProps {
+		class?: string;
+		output?: any;
+		errorText?: string;
+		children?: Snippet;
+		[key: string]: any;
+	}
+
+	let {
+		class: className = "",
+		output,
+		errorText,
+		children,
+		...restProps
+	}: ToolOutputProps = $props();
+
+	let shouldRender = $derived.by(() => {
+		return !!(output || errorText);
+	});
+
+	type OutputComp = {
+		type: "code" | "text";
+		content: string;
+		language: string;
+	};
+
+	let outputComponent: OutputComp | null = $derived.by(() => {
+		if (!output) return null;
+
+		if (typeof output === "object") {
+			return {
+				type: "code",
+				content: JSON.stringify(output, null, 2),
+				language: "json",
+			};
+		} else if (typeof output === "string") {
+			return {
+				type: "code",
+				content: output,
+				language: "json",
+			};
+		} else {
+			return {
+				type: "text",
+				content: String(output),
+				language: "text",
+			};
+		}
+	});
+
+	let id = $props.id();
+</script>
+
+{#if shouldRender}
+	<div {id} class={cn("space-y-2 p-4", className)} {...restProps}>
+		<h4 class="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+			{errorText ? "Error" : "Result"}
+		</h4>
+		<div
+			class={cn(
+				"rounded-md text-xs [&_table]:w-full",
+				errorText
+					? "overflow-hidden bg-destructive/10 text-destructive"
+					: "overflow-x-auto bg-muted/50 text-foreground",
+			)}
+		>
+			{#if errorText}
+				<pre
+					class="max-h-64 max-w-full overflow-auto whitespace-pre-wrap break-words p-3 font-mono text-xs">{errorText}</pre>
+			{:else if outputComponent}
+				{#if outputComponent.type === "code"}
+					<div class="relative">
+						<div class="absolute right-2 top-2 z-10">
+							<CopyButton text={outputComponent.content} size="sm" variant="ghost" />
+						</div>
+						<pre class="overflow-x-auto p-3 pr-12 text-sm font-mono"><code>{outputComponent.content}</code></pre>
+					</div>
+				{:else}
+					<div class="p-3">{outputComponent.content}</div>
+				{/if}
+			{/if}
+		</div>
+	</div>
+{/if}
