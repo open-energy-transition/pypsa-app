@@ -114,3 +114,5 @@ src/pypsa_app/backend/static/map/
 
 # pi-lens local tooling artifacts
 frontend/app/.pi-lens/
+# Local Pi runtime state
+.atl/
