@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { uuid } from '$lib/utils/uuid';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { getContext, onMount, onDestroy } from 'svelte';
@@ -117,7 +118,7 @@
 
 	function addMarkdownCard() {
 		reportStore.addCard(reportStore.activeReport.id, {
-			id: crypto.randomUUID(),
+			id: uuid(),
 			type: 'markdown',
 			content: '',
 			x: 0,
@@ -139,7 +140,7 @@
 		const components = network.components_count ? Object.keys(network.components_count) : [];
 		const defaultComponent = components[0] ?? 'Bus';
 		reportStore.addCard(reportStore.activeReport.id, {
-			id: crypto.randomUUID(),
+			id: uuid(),
 			type: 'component_table',
 			component: defaultComponent,
 			x: 0,
@@ -153,7 +154,7 @@
 
 	function addOverviewCard() {
 		reportStore.addCard(reportStore.activeReport.id, {
-			id: crypto.randomUUID(),
+			id: uuid(),
 			type: 'overview',
 			x: 0,
 			y: 0,

@@ -1,0 +1,77 @@
+export type Role = 'user' | 'assistant' | 'tool';
+
+export interface ToolResult {
+  tool_call_id: string;
+  result: unknown | null; // tool payload (e.g. { summary, data, display_hint, chart_spec })
+  is_error: boolean;
+  error: string | null;
+}
+
+export interface NetworkRef {
+  id: string;
+  name: string | null;
+}
+
+export interface NetworkChange {
+  from: NetworkRef | null;
+  to: NetworkRef | null;
+}
+
+export interface UserMessage {
+  id: string; // UUID; client-generated
+  role: 'user';
+  content: string;
+  timestamp: string; // ISO-8601
+  network_change?: NetworkChange;
+}
+
+export interface TextSegment {
+  kind: 'text';
+  message_id: string;
+  text: string;
+}
+
+export interface ReasoningSegment {
+  kind: 'reasoning';
+  message_id: string;
+  text: string;
+}
+
+export interface ToolCallSegment {
+  kind: 'tool_call';
+  id: string;
+  name: string;
+  args?: Record<string, unknown>;
+  status: 'streaming' | 'running' | 'complete' | 'error';
+  result?: ToolResult;
+  phase: 'reasoning' | 'content';
+}
+
+export type AssistantSegment = TextSegment | ReasoningSegment | ToolCallSegment;
+
+export interface AssistantMessage {
+  id: string;
+  role: 'assistant';
+  segments: AssistantSegment[];
+  timestamp: string;
+}
+
+export type Message = UserMessage | AssistantMessage;
+
+export interface ChatContext {
+  active_network_id: string | null;
+  active_network_name: string | null;
+  previous_active_network_id?: string | null;
+  previous_active_network_name?: string | null;
+}
+
+export type AGUIEvent =
+  | { event: 'RunStarted'; data: { run_id: string; model: string } }
+  | { event: 'TextMessageContent'; data: { message_id: string; delta: string } }
+  | { event: 'ReasoningMessageContent'; data: { message_id: string; delta: string } }
+  | { event: 'ToolCallStart'; data: { tool_call_id: string; tool_name: string } }
+  | { event: 'ToolCallArgs'; data: { tool_call_id: string; delta: string } }
+  | { event: 'ToolCallEnd'; data: { tool_call_id: string; args: Record<string, unknown> } }
+  | { event: 'ToolCallResult'; data: ToolResult }
+  | { event: 'RunFinished'; data: { run_id: string; usage: { input_tokens: number; output_tokens: number }; stop_reason: string } }
+  | { event: 'RunError'; data: { run_id: string; code: string; message: string } };

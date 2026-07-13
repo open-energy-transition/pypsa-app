@@ -7,6 +7,7 @@
 	import type { NetworkWithFacets } from './types.js';
 	import AlertCircle from '@lucide/svelte/icons/alert-circle';
 	import { breadcrumbStore } from '$lib/stores/breadcrumb.svelte.js';
+	import { networkStore } from '$lib/stores/network.svelte';
 	import { selectedNetworkIds } from '$lib/stores/networkPageStore';
 	import { reportStore } from '$lib/stores/reportStore.svelte.js';
 	import { PageSkeleton } from '$lib/components/skeletons';
@@ -51,6 +52,7 @@
 			loading = false;
 		}
 		if (network) {
+			networkStore.current = { id: networkId, name: network.filename ?? null };
 			reportStore.loadForNetwork(networkId);
 		}
 	}
@@ -62,6 +64,7 @@
 
 	onDestroy(() => {
 		breadcrumbStore.clear();
+		networkStore.current = null;
 		clearTimeout(loadTimeout);
 	});
 </script>
